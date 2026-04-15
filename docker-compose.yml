@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: garagemanagement-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-Server}
+      POSTGRES_USER: ${POSTGRES_USER:-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "5432:5432"
+    volumes:
+      - garagemanagement-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garage_user} -d ${POSTGRES_DB:-Server}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  db-migrator:
+    build:
+      context: .
+      dockerfile: src/GarageManagement.DbMigrator/Dockerfile
+    container_name: garagemanagement-db-migrator
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  http-api-host:
+    build:
+      context: .
+      dockerfile: src/GarageManagement.HttpApi.Host/Dockerfile
+    container_name: garagemanagement-http-api-host
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      App__SelfUrl: http://localhost:8080
+      AuthServer__Authority: http://localhost:8080
+      AuthServer__RequireHttpsMetadata: "false"
+      ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrator:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+
+volumes:
+  garagemanagement-postgres-data:
