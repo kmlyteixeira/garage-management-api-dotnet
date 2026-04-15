@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GarageManagement.Application.Contracts/GarageManagement.Application.Contracts.csproj" />
+    <Project Path="src/GarageManagement.Application/GarageManagement.Application.csproj" />
+    <Project Path="src/GarageManagement.DbMigrator/GarageManagement.DbMigrator.csproj" />
+    <Project Path="src/GarageManagement.Domain.Shared/GarageManagement.Domain.Shared.csproj" />
+    <Project Path="src/GarageManagement.Domain/GarageManagement.Domain.csproj" />
+    <Project Path="src/GarageManagement.EntityFrameworkCore/GarageManagement.EntityFrameworkCore.csproj" />
+    <Project Path="src/GarageManagement.HttpApi.Client/GarageManagement.HttpApi.Client.csproj" />
+    <Project Path="src/GarageManagement.HttpApi.Host/GarageManagement.HttpApi.Host.csproj" />
+    <Project Path="src/GarageManagement.HttpApi.Host/GarageManagement.HttpApi.Host.csproj" />
+    <Project Path="src/GarageManagement.HttpApi/GarageManagement.HttpApi.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/GarageManagement.Application.Tests/GarageManagement.Application.Tests.csproj" />
+    <Project Path="test/GarageManagement.Domain.Tests/GarageManagement.Domain.Tests.csproj" />
+    <Project Path="test/GarageManagement.EntityFrameworkCore.Tests/GarageManagement.EntityFrameworkCore.Tests.csproj" />
+    <Project Path="test/GarageManagement.HttpApi.Client.ConsoleTestApp/GarageManagement.HttpApi.Client.ConsoleTestApp.csproj" />
+    <Project Path="test/GarageManagement.TestBase/GarageManagement.TestBase.csproj" />
+  </Folder>
+</Solution>
