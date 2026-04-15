@@ -1,6 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends nodejs npm \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN dotnet tool install -g Volo.Abp.Cli --version 8.3.0
+ENV PATH="$PATH:/root/.dotnet/tools"
+
 COPY ["common.props", "./"]
 COPY ["NuGet.Config", "./"]
 COPY ["src/GarageManagement.Application/GarageManagement.Application.csproj", "src/GarageManagement.Application/"]
@@ -15,6 +22,7 @@ RUN dotnet restore "src/GarageManagement.HttpApi.Host/GarageManagement.HttpApi.H
 
 COPY . .
 WORKDIR /src/src/GarageManagement.HttpApi.Host
+RUN abp install-libs
 RUN dotnet publish "GarageManagement.HttpApi.Host.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final

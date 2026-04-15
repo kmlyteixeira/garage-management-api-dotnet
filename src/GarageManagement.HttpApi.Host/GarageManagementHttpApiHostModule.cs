@@ -15,6 +15,7 @@ using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
 using Microsoft.OpenApi.Models;
 using OpenIddict.Validation.AspNetCore;
+using OpenIddict.Server.AspNetCore;
 using Volo.Abp;
 using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
@@ -48,6 +49,17 @@ public class GarageManagementHttpApiHostModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
+        var configuration = context.Services.GetConfiguration();
+        var selfUrl = configuration["App:SelfUrl"];
+
+        if (selfUrl != null && selfUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            PreConfigure<OpenIddictServerBuilder>(builder =>
+            {
+                builder.UseAspNetCore().DisableTransportSecurityRequirement();
+            });
+        }
+
         PreConfigure<OpenIddictBuilder>(builder =>
         {
             builder.AddValidation(options =>
@@ -193,10 +205,8 @@ public class GarageManagementHttpApiHostModule : AbpModule
 
         app.UseAbpRequestLocalization();
 
-        if (!env.IsDevelopment())
-        {
-            app.UseErrorPage();
-        }
+        // API host in containers may run without MVC theme static libs. Keep API error responses
+        // and avoid rendering the themed error page that depends on /libs assets.
 
         app.UseCorrelationId();
         app.UseStaticFiles();

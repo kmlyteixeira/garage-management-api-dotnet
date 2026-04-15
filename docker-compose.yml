@@ -28,6 +28,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+      OpenIddict__Applications__GarageManagement_Swagger__RootUrl: http://localhost:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,6 +45,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       App__SelfUrl: http://localhost:8080
+      App__CorsOrigins: http://localhost:8080,http://localhost:4200,https://localhost:44364,https://*.GarageManagement.com
+      App__RedirectAllowedUrls: http://localhost:8080,http://localhost:4200,https://localhost:44364
       AuthServer__Authority: http://localhost:8080
       AuthServer__RequireHttpsMetadata: "false"
       ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
@@ -54,6 +57,9 @@ services:
         condition: service_completed_successfully
     ports:
       - "8080:8080"
+    volumes:
+      - garagemanagement-data-protection:/root/.aspnet/DataProtection-Keys
 
 volumes:
   garagemanagement-postgres-data:
+  garagemanagement-data-protection:
