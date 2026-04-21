@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +32,7 @@ using Volo.Abp.Security.Claims;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
+using GarageManagement.Json;
 
 namespace GarageManagement;
 
@@ -82,6 +84,7 @@ public class GarageManagementHttpApiHostModule : AbpModule
         ConfigureConventionalControllers();
         ConfigureVirtualFileSystem(context);
         ConfigureCors(context, configuration);
+        ConfigureJsonOptions(context);
         ConfigureSwaggerServices(context, configuration);
     }
 
@@ -170,7 +173,16 @@ public class GarageManagementHttpApiHostModule : AbpModule
                     return controllerActionDescriptor.ControllerTypeInfo.Namespace?.StartsWith("GarageManagement.") == true;
                 });
                 options.CustomSchemaIds(type => type.FullName);
+                options.SchemaFilter<EnumDescriptionSchemaFilter>();
             });
+    }
+
+    private static void ConfigureJsonOptions(ServiceConfigurationContext context)
+    {
+        context.Services.Configure<JsonOptions>(options =>
+        {
+            options.JsonSerializerOptions.Converters.Add(new EnumDescriptionJsonConverterFactory());
+        });
     }
 
     private void ConfigureCors(ServiceConfigurationContext context, IConfiguration configuration)

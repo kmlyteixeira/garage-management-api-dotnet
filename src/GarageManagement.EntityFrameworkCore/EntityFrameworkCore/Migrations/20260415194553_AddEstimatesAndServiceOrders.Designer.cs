@@ -3,6 +3,7 @@ using System;
 using GarageManagement.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Volo.Abp.EntityFrameworkCore;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace GarageManagement.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(GarageManagementDbContext))]
-    partial class GarageManagementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260415194553_AddEstimatesAndServiceOrders")]
+    partial class AddEstimatesAndServiceOrders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,10 +128,15 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                     b.ToTable("AppEstimates", (string)null);
                 });
 
-            modelBuilder.Entity("GarageManagement.Estimates.EstimateProductItem", b =>
+            modelBuilder.Entity("GarageManagement.Estimates.EstimatePartItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<Guid>("EstimateId")
                         .HasColumnType("uuid");
@@ -143,17 +151,26 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EstimateId", "ProductId");
 
-                    b.ToTable("AppEstimateProductItems", (string)null);
+                    b.ToTable("AppEstimatePartItems", (string)null);
                 });
 
             modelBuilder.Entity("GarageManagement.Estimates.EstimateServiceItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<Guid>("EstimateId")
                         .HasColumnType("uuid");
@@ -165,6 +182,10 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
@@ -184,9 +205,6 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ReservedQuantity")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -271,17 +289,98 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<Guid>("VehicleId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EstimateId");
-
                     b.HasIndex("ServiceOrderNumber")
                         .IsUnique();
 
                     b.ToTable("AppServiceOrders", (string)null);
+                });
+
+            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrderPartItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<bool>("IsConsumed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsReserved")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ServiceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceOrderId", "ProductId");
+
+                    b.ToTable("AppServiceOrderPartItems", (string)null);
+                });
+
+            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrderServiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ServiceOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceOrderId", "ServiceId");
+
+                    b.ToTable("AppServiceOrderServiceItems", (string)null);
                 });
 
             modelBuilder.Entity("GarageManagement.Services.Service", b =>
@@ -2129,7 +2228,7 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                     b.ToTable("AbpTenantConnectionStrings", (string)null);
                 });
 
-            modelBuilder.Entity("GarageManagement.Estimates.EstimateProductItem", b =>
+            modelBuilder.Entity("GarageManagement.Estimates.EstimatePartItem", b =>
                 {
                     b.HasOne("GarageManagement.Estimates.Estimate", null)
                         .WithMany("PartItems")
@@ -2158,13 +2257,22 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrder", b =>
+            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrderPartItem", b =>
                 {
-                    b.HasOne("GarageManagement.Estimates.Estimate", "Estimate")
-                        .WithMany()
-                        .HasForeignKey("EstimateId");
+                    b.HasOne("GarageManagement.ServiceOrders.ServiceOrder", null)
+                        .WithMany("PartItems")
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 
-                    b.Navigation("Estimate");
+            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrderServiceItem", b =>
+                {
+                    b.HasOne("GarageManagement.ServiceOrders.ServiceOrder", null)
+                        .WithMany("ServiceItems")
+                        .HasForeignKey("ServiceOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Volo.Abp.AuditLogging.AuditLogAction", b =>
@@ -2310,6 +2418,13 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                 });
 
             modelBuilder.Entity("GarageManagement.Estimates.Estimate", b =>
+                {
+                    b.Navigation("PartItems");
+
+                    b.Navigation("ServiceItems");
+                });
+
+            modelBuilder.Entity("GarageManagement.ServiceOrders.ServiceOrder", b =>
                 {
                     b.Navigation("PartItems");
 

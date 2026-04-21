@@ -7,6 +7,7 @@ using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.TenantManagement;
 using Microsoft.Extensions.DependencyInjection;
+using GarageManagement.ServiceOrders;
 
 namespace GarageManagement;
 
@@ -26,6 +27,9 @@ public class GarageManagementApplicationModule : AbpModule
     public override void ConfigureServices(ServiceConfigurationContext context)
     {
         context.Services.AddAutoMapperObjectMapper<GarageManagementApplicationModule>();
+
+        context.Services.AddTransient<IServiceOrderUpdateHandler, ServiceOrderUpdateHandler>();
+        context.Services.AddTransient<IServiceOrderUpdateMediator, ServiceOrderUpdateMediator>();
 
         Configure<AbpAutoMapperOptions>(options => {
             options.AddMaps<GarageManagementApplicationModule>();

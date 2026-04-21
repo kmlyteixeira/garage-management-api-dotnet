@@ -3,6 +3,7 @@ using System;
 using GarageManagement.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Volo.Abp.EntityFrameworkCore;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace GarageManagement.EntityFrameworkCore.Migrations
 {
     [DbContext(typeof(GarageManagementDbContext))]
-    partial class GarageManagementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260420140629_AddCustomerAndVehicleToServiceOrder")]
+    partial class AddCustomerAndVehicleToServiceOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,10 +128,15 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                     b.ToTable("AppEstimates", (string)null);
                 });
 
-            modelBuilder.Entity("GarageManagement.Estimates.EstimateProductItem", b =>
+            modelBuilder.Entity("GarageManagement.Estimates.EstimatePartItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<Guid>("EstimateId")
                         .HasColumnType("uuid");
@@ -143,17 +151,26 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EstimateId", "ProductId");
 
-                    b.ToTable("AppEstimateProductItems", (string)null);
+                    b.ToTable("AppEstimatePartItems", (string)null);
                 });
 
             modelBuilder.Entity("GarageManagement.Estimates.EstimateServiceItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<Guid>("EstimateId")
                         .HasColumnType("uuid");
@@ -165,6 +182,10 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
@@ -184,9 +205,6 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("ReservedQuantity")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -2129,7 +2147,7 @@ namespace GarageManagement.EntityFrameworkCore.Migrations
                     b.ToTable("AbpTenantConnectionStrings", (string)null);
                 });
 
-            modelBuilder.Entity("GarageManagement.Estimates.EstimateProductItem", b =>
+            modelBuilder.Entity("GarageManagement.Estimates.EstimatePartItem", b =>
                 {
                     b.HasOne("GarageManagement.Estimates.Estimate", null)
                         .WithMany("PartItems")
