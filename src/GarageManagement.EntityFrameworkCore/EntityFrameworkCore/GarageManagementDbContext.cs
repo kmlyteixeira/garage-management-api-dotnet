@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using GarageManagement.Customers;
+using GarageManagement.Estimates;
 using GarageManagement.Inventories;
 using GarageManagement.Products;
 using GarageManagement.Services;
+using GarageManagement.ServiceOrders;
 using GarageManagement.Vehicles;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -62,6 +64,8 @@ public class GarageManagementDbContext :
     public DbSet<Service> Services { get; set; }
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<Inventory> Inventories { get; set; }
+    public DbSet<Estimate> Estimates { get; set; }
+    public DbSet<ServiceOrder> ServiceOrders { get; set; }
 
     #endregion
 
