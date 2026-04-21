@@ -1,8 +1,10 @@
 using AutoMapper;
 using GarageManagement.Customers;
+using GarageManagement.Estimates;
 using GarageManagement.Inventories;
 using GarageManagement.Products;
 using GarageManagement.Services;
+using GarageManagement.ServiceOrders;
 using GarageManagement.Vehicles;
 
 namespace GarageManagement;
@@ -19,9 +21,7 @@ public class GarageManagementApplicationMappers : Profile
             .ForMember(dest => dest.Id, opt => opt.Ignore());
 
         // Inventory mappings
-        CreateMap<Inventory, InventoryDto>()
-            .ForMember(dest => dest.ProductDescription, opt => opt.MapFrom(src => src.Product.Description))
-            .ForMember(dest => dest.ProductPrice, opt => opt.MapFrom(src => src.Product.Price));
+        CreateMap<Inventory, InventoryDto>(); ;
         CreateMap<InventoryCreateUpdateDto, Inventory>()
             .ForMember(dest => dest.Product, opt => opt.Ignore())
             .ForMember(dest => dest.Id, opt => opt.Ignore());
@@ -40,5 +40,13 @@ public class GarageManagementApplicationMappers : Profile
         CreateMap<Vehicle, VehicleDto>();
         CreateMap<VehicleCreateUpdateDto, Vehicle>()
             .ForMember(dest => dest.Id, opt => opt.Ignore());
+
+        // Estimate mappings
+        CreateMap<EstimateServiceItem, EstimateServiceItemDto>();
+        CreateMap<EstimateProductItem, EstimateProductItemDto>();
+        CreateMap<Estimate, EstimateDto>();
+
+        // Service order mappings
+        CreateMap<ServiceOrder, ServiceOrderDto>();
     }
 }
