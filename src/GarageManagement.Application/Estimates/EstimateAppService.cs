@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using GarageManagement.Inventories;
+using GarageManagement.Permissions;
 using GarageManagement.ServiceOrders;
+using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -13,26 +15,35 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
     IEstimateAppService
 {
     private readonly IRepository<Estimate, Guid> estimateRepository;
+    private readonly IRepository<EstimateProductItem, Guid> estimateProductItemRepository;
     private readonly IRepository<ServiceOrder, Guid> serviceOrderRepository;
     private readonly IInventoryAppService inventoryAppService;
 
     public EstimateAppService(
         IReadOnlyRepository<Estimate, Guid> repository,
         IRepository<Estimate, Guid> estimateRepository,
+        IRepository<EstimateProductItem, Guid> estimateProductItemRepository,
         IRepository<ServiceOrder, Guid> serviceOrderRepository,
         IInventoryAppService inventoryAppService) : base(repository)
     {
         this.estimateRepository = estimateRepository;
+        this.estimateProductItemRepository = estimateProductItemRepository;
         this.serviceOrderRepository = serviceOrderRepository;
         this.inventoryAppService = inventoryAppService;
+
+        GetPolicyName = GarageManagementPermissions.Estimates.Default;
+        GetListPolicyName = GarageManagementPermissions.Estimates.Default;
     }
 
+    [Authorize(GarageManagementPermissions.Estimates.Approve)]
     public async Task<EstimateDto> ApproveAsync(Guid id)
     {
         var estimate = await estimateRepository.GetAsync(id, includeDetails: true)
             ?? throw new UserFriendlyException("Orçamento não encontrado.");
 
-        var quantitiesByProduct = estimate.PartItems
+        var estimatePartItems = await estimateProductItemRepository.GetListAsync(item => item.EstimateId == estimate.Id);
+
+        var quantitiesByProduct = estimatePartItems
             .GroupBy(item => item.ProductId)
             .Select(group => new
             {
@@ -60,6 +71,7 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
         return ObjectMapper.Map<Estimate, EstimateDto>(estimate);
     }
 
+    [Authorize(GarageManagementPermissions.Estimates.Reject)]
     public async Task<EstimateDto> RejectAsync(Guid id, EstimateRejectDto input)
     {
         if (string.IsNullOrWhiteSpace(input.Reason))
@@ -70,7 +82,9 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
         var estimate = await estimateRepository.GetAsync(id, includeDetails: true)
             ?? throw new UserFriendlyException("Orçamento não encontrado.");
 
-        var quantitiesByProduct = estimate.PartItems
+        var estimatePartItems = await estimateProductItemRepository.GetListAsync(item => item.EstimateId == estimate.Id);
+
+        var quantitiesByProduct = estimatePartItems
             .GroupBy(item => item.ProductId)
             .Select(group => new
             {

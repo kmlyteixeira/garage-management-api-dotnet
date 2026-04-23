@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
+using GarageManagement.Permissions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
@@ -27,6 +29,12 @@ public class ServiceOrderAppService :
         this.serviceOrderUpdateMediator = serviceOrderUpdateMediator;
         this.customerRepository = customerRepository;
         this.emailSender = emailSender;
+
+        GetPolicyName = GarageManagementPermissions.ServiceOrders.Default;
+        GetListPolicyName = GarageManagementPermissions.ServiceOrders.Default;
+        CreatePolicyName = GarageManagementPermissions.ServiceOrders.Create;
+        UpdatePolicyName = GarageManagementPermissions.ServiceOrders.Edit;
+        DeletePolicyName = GarageManagementPermissions.ServiceOrders.Delete;
     }
 
     public override async Task<ServiceOrderDto> CreateAsync(ServiceOrderCreateDto input)
@@ -46,6 +54,7 @@ public class ServiceOrderAppService :
         return await serviceOrderUpdateMediator.UpdateAsync(serviceOrder, input);
     }
 
+    [Authorize(GarageManagementPermissions.ServiceOrders.UpdateStatus)]
     public async Task<ServiceOrderDto> UpdateStatusAsync(Guid id, ServiceOrderUpdateStatusDto input)
     {
         var serviceOrder = await Repository.GetAsync(id, includeDetails: true)

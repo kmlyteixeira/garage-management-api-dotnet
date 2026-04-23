@@ -79,6 +79,25 @@ public class OpenIddictDataSeedContributor : IDataSeedContributor, ITransientDep
 
         var configurationSection = _configuration.GetSection("OpenIddict:Applications");
 
+        // Console/Postman client (password + refresh token)
+        var appClientId = configurationSection["GarageManagement_App:ClientId"];
+        if (!appClientId.IsNullOrWhiteSpace())
+        {
+            await CreateApplicationAsync(
+                name: appClientId!,
+                type: OpenIddictConstants.ClientTypes.Public,
+                consentType: OpenIddictConstants.ConsentTypes.Implicit,
+                displayName: "GarageManagement App",
+                secret: null,
+                grantTypes: new List<string>
+                {
+                    OpenIddictConstants.GrantTypes.Password,
+                    OpenIddictConstants.GrantTypes.RefreshToken
+                },
+                scopes: commonScopes
+            );
+        }
+
 
 
 
