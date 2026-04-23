@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using GarageManagement.Permissions;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
@@ -12,6 +13,11 @@ namespace GarageManagement.Inventories
     {
         public InventoryAppService(IRepository<Inventory, Guid> repository) : base(repository)
         {
+            GetPolicyName = GarageManagementPermissions.Inventories.Default;
+            GetListPolicyName = GarageManagementPermissions.Inventories.Default;
+            CreatePolicyName = GarageManagementPermissions.Inventories.Create;
+            UpdatePolicyName = GarageManagementPermissions.Inventories.Edit;
+            DeletePolicyName = GarageManagementPermissions.Inventories.Delete;
         }
 
         [RemoteService(false)]
@@ -116,10 +122,8 @@ namespace GarageManagement.Inventories
                 return;
             }
 
-            var queryable = await Repository.GetQueryableAsync();
-            var inventory = await AsyncExecuter.FirstOrDefaultAsync(
-                queryable,
-                item => item.ProductId == productId
+            var inventory = await Repository.FirstOrDefaultAsync(
+                    item => item.ProductId == productId
             );
 
             if (inventory == null)

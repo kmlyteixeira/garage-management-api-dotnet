@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using GarageManagement.Permissions;
 using Volo.Abp.Application.Services;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -12,6 +13,11 @@ namespace GarageManagement.Customers
     {
         public CustomerAppService(IRepository<Customer, Guid> repository) : base(repository)
         {
+            GetPolicyName = GarageManagementPermissions.Customers.Default;
+            GetListPolicyName = GarageManagementPermissions.Customers.Default;
+            CreatePolicyName = GarageManagementPermissions.Customers.Create;
+            UpdatePolicyName = GarageManagementPermissions.Customers.Edit;
+            DeletePolicyName = GarageManagementPermissions.Customers.Delete;
         }
 
         public override async Task<CustomerDto> CreateAsync(CustomerCreateUpdateDto input)
