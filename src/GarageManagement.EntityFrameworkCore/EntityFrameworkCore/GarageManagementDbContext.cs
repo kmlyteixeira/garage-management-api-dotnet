@@ -65,6 +65,8 @@ public class GarageManagementDbContext :
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<Inventory> Inventories { get; set; }
     public DbSet<Estimate> Estimates { get; set; }
+    public DbSet<EstimateServiceItem> EstimateServiceItems { get; set; }
+    public DbSet<EstimateProductItem> EstimateProductItems { get; set; }
     public DbSet<ServiceOrder> ServiceOrders { get; set; }
 
     #endregion

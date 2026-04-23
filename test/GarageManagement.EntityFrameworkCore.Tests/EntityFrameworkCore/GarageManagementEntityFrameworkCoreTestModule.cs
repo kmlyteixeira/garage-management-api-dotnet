@@ -3,7 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using GarageManagement.EntityFrameworkCore.TestDoubles;
 using Volo.Abp;
+using Volo.Abp.Emailing;
 using Volo.Abp.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore.Sqlite;
 using Volo.Abp.FeatureManagement;
@@ -41,6 +44,10 @@ public class GarageManagementEntityFrameworkCoreTestModule : AbpModule
             options.IsDynamicSettingStoreEnabled = false;
         });
         context.Services.AddAlwaysDisableUnitOfWorkTransaction();
+
+        context.Services.AddSingleton<TestEmailSender>();
+        context.Services.Replace(ServiceDescriptor.Singleton<IEmailSender>(
+            serviceProvider => serviceProvider.GetRequiredService<TestEmailSender>()));
 
         ConfigureInMemorySqlite(context.Services);
     }
