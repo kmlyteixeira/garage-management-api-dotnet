@@ -42,7 +42,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml"
 
       - name: Build solution
         shell: powershell
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run tests
         shell: powershell
-        run: dotnet test --no-build
+        run: dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory .\TestResults
 
       - name: Finish SonarQube analysis
         if: always()
