@@ -37,11 +37,25 @@ jobs:
         run: |
           New-Item -Path ${{ runner.temp }}\scanner -ItemType Directory
           dotnet tool update dotnet-sonarscanner --tool-path ${{ runner.temp }}\scanner
-      - name: Build and analyze
+      - name: Start SonarQube analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
           ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
-          dotnet build
+
+      - name: Build solution
+        shell: powershell
+        run: dotnet build
+
+      - name: Run tests
+        shell: powershell
+        run: dotnet test --no-build
+
+      - name: Finish SonarQube analysis
+        if: always()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
