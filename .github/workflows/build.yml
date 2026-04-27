@@ -42,7 +42,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" /d:sonar.coverage.exclusions="**/Migrations/**,**/*Dto.cs,**/*CreateDto.cs,**/*UpdateDto.cs,**/*CreateUpdateDto.cs,**/*GetListInputDto.cs"
 
       - name: Build solution
         shell: powershell
@@ -50,7 +50,10 @@ jobs:
 
       - name: Run tests
         shell: powershell
-        run: dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory .\TestResults
+        run: |
+          dotnet test .\test\GarageManagement.Domain.Tests\GarageManagement.Domain.Tests.csproj --no-build --collect:"XPlat Code Coverage" --results-directory .\TestResults
+          dotnet test .\test\GarageManagement.Application.Tests\GarageManagement.Application.Tests.csproj --no-build --collect:"XPlat Code Coverage" --results-directory .\TestResults
+          dotnet test .\test\GarageManagement.EntityFrameworkCore.Tests\GarageManagement.EntityFrameworkCore.Tests.csproj --no-build --collect:"XPlat Code Coverage" --results-directory .\TestResults
 
       - name: Finish SonarQube analysis
         if: always()
