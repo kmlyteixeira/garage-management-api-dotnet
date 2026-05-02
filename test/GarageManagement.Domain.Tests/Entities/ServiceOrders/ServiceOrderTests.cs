@@ -7,9 +7,27 @@ namespace GarageManagement.ServiceOrders.Tests;
 public class ServiceOrderTests
 {
     [Fact]
+    public void Private_Constructor_Should_Initialize_ServiceOrderNumber_As_Empty()
+    {
+        var serviceOrder = (ServiceOrder)Activator.CreateInstance(typeof(ServiceOrder), nonPublic: true)!;
+
+        serviceOrder.ServiceOrderNumber.ShouldBe(string.Empty);
+    }
+
+    [Fact]
     public void Constructor_Should_Require_Number()
     {
         Should.Throw<ArgumentException>(() => new ServiceOrder(Guid.NewGuid(), "", Guid.NewGuid(), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void StartDiagnosis_When_Not_Received_Should_Throw()
+    {
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+
+        serviceOrder.StartDiagnosis();
+
+        Should.Throw<InvalidOperationException>(() => serviceOrder.StartDiagnosis());
     }
 
     [Fact]
@@ -26,6 +44,14 @@ public class ServiceOrderTests
         var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
         Should.Throw<InvalidOperationException>(() => so.WaitApproval());
+    }
+
+    [Fact]
+    public void WaitExecution_When_Not_WaitingApproval_Should_Throw()
+    {
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => serviceOrder.WaitExecution());
     }
 
     [Fact]
@@ -67,5 +93,13 @@ public class ServiceOrderTests
         var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
         Should.Throw<InvalidOperationException>(() => so.ChangeStatus(ServiceOrderStatus.Received));
+    }
+
+    [Fact]
+    public void Deliver_When_Not_Finished_Should_Throw()
+    {
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => serviceOrder.Deliver());
     }
 }

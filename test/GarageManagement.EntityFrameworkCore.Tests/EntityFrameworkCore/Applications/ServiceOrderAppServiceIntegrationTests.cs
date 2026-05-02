@@ -127,6 +127,44 @@ public class ServiceOrderAppServiceIntegrationTests : GarageManagementEntityFram
     }
 
     [Fact]
+    public async Task UpdateStatusAsync_Should_Ignore_Email_Sender_Failures_When_Finishing()
+    {
+        testEmailSender.Clear();
+        testEmailSender.ThrowOnSend = true;
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var customer = new Customer($"Cliente {suffix}", $"{suffix}@mail.com", "11999999999", new Document($"DOC{suffix}"));
+        var vehicle = new Vehicle("Honda", "City", 2024, $"QRS{suffix}");
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            await customerRepository.InsertAsync(customer, autoSave: true);
+            await vehicleRepository.InsertAsync(vehicle, autoSave: true);
+
+            var estimate = new Estimate(Guid.NewGuid(), $"EST-{suffix}", customer.Id, vehicle.Id);
+            await estimateRepository.InsertAsync(estimate, autoSave: true);
+
+            var serviceOrder = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}", customer.Id, vehicle.Id);
+            serviceOrder.AssociateEstimate(estimate.Id);
+            await serviceOrderRepository.InsertAsync(serviceOrder, autoSave: true);
+
+            await serviceOrderAppService.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.InDiagnosis });
+            await serviceOrderAppService.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.WaitingApproval });
+            await serviceOrderAppService.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.WaitingExecution });
+            await serviceOrderAppService.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.InExecution });
+
+            var result = await serviceOrderAppService.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.Finished });
+
+            var updated = await serviceOrderRepository.GetAsync(serviceOrder.Id);
+
+            result.Status.ShouldBe(ServiceOrderStatus.Finished);
+            updated.Status.ShouldBe(ServiceOrderStatus.Finished);
+            testEmailSender.SentEmails.Count.ShouldBe(0);
+        });
+
+        testEmailSender.ThrowOnSend = false;
+    }
+
+    [Fact]
     public async Task UpdateStatusAsync_Should_Throw_When_Trying_To_Finish_Directly_From_Received()
     {
         testEmailSender.Clear();

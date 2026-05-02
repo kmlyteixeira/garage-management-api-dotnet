@@ -7,6 +7,16 @@ namespace GarageManagement.Estimates.Tests;
 public class EstimateTests
 {
     [Fact]
+    public void Private_Constructor_Should_Initialize_Default_State()
+    {
+        var estimate = (Estimate)Activator.CreateInstance(typeof(Estimate), nonPublic: true)!;
+
+        estimate.EstimateNumber.ShouldBe(string.Empty);
+        estimate.ServiceItems.ShouldNotBeNull();
+        estimate.PartItems.ShouldNotBeNull();
+    }
+
+    [Fact]
     public void AddServiceItem_When_Approved_Should_Throw()
     {
         var estimate = new Estimate(Guid.NewGuid(), "E-1", Guid.NewGuid(), Guid.NewGuid());
@@ -25,6 +35,31 @@ public class EstimateTests
         var service = new GarageManagement.Services.Service("S", 100m, 1);
 
         Should.Throw<InvalidOperationException>(() => estimate.UpdateServiceItem(service, 1));
+    }
+
+    [Fact]
+    public void SendToCustomer_When_Not_Draft_Should_Throw()
+    {
+        var estimate = new Estimate(Guid.NewGuid(), "E-1", Guid.NewGuid(), Guid.NewGuid());
+        estimate.SendToCustomer();
+
+        Should.Throw<InvalidOperationException>(() => estimate.SendToCustomer());
+    }
+
+    [Fact]
+    public void Approve_When_Not_PendingApproval_Should_Throw()
+    {
+        var estimate = new Estimate(Guid.NewGuid(), "E-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => estimate.Approve());
+    }
+
+    [Fact]
+    public void Reject_When_Not_PendingApproval_Should_Throw()
+    {
+        var estimate = new Estimate(Guid.NewGuid(), "E-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => estimate.Reject("any reason"));
     }
 
     [Fact]
