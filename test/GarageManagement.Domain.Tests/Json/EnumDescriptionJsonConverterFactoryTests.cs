@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using GarageManagement.Json;
@@ -63,6 +64,33 @@ public class EnumDescriptionJsonConverterFactoryTests
 
         // unknown string
         Should.Throw<JsonException>(() => ReadUnknownValue(converter));
+    }
+
+    [Fact]
+    public void NullableEnumConverter_Read_Null_Returns_Null()
+    {
+        var converter = new NullableEnumDescriptionJsonConverter<TestEnum>();
+
+        var bytes = Encoding.UTF8.GetBytes("null");
+        var reader = new Utf8JsonReader(bytes);
+        reader.Read();
+
+        var value = converter.Read(ref reader, typeof(TestEnum?), new JsonSerializerOptions());
+
+        value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void NullableEnumConverter_Write_Null_Writes_Json_Null()
+    {
+        var converter = new NullableEnumDescriptionJsonConverter<TestEnum>();
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+
+        converter.Write(writer, null, new JsonSerializerOptions());
+        writer.Flush();
+
+        Encoding.UTF8.GetString(stream.ToArray()).ShouldBe("null");
     }
 
     private static void ReadUnknownValue(EnumDescriptionJsonConverter<TestEnum> converter)

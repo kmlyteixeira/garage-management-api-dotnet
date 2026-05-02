@@ -10,22 +10,39 @@ public class TestEmailSender : IEmailSender
 {
     private readonly ConcurrentBag<SentEmailMessage> sentEmails = new();
 
+    public bool ThrowOnSend { get; set; }
+
     public IReadOnlyCollection<SentEmailMessage> SentEmails => sentEmails.ToArray();
 
     public Task SendAsync(string to, string? subject, string? body, bool isBodyHtml = true, AdditionalEmailSendingArgs? additionalEmailSendingArgs = null)
     {
+        if (ThrowOnSend)
+        {
+            throw new System.Exception("Simulated email failure.");
+        }
+
         sentEmails.Add(new SentEmailMessage(to, subject ?? string.Empty, body ?? string.Empty, isBodyHtml));
         return Task.CompletedTask;
     }
 
     public Task SendAsync(string from, string to, string? subject, string? body, bool isBodyHtml = true, AdditionalEmailSendingArgs? additionalEmailSendingArgs = null)
     {
+        if (ThrowOnSend)
+        {
+            throw new System.Exception("Simulated email failure.");
+        }
+
         sentEmails.Add(new SentEmailMessage(to, subject ?? string.Empty, body ?? string.Empty, isBodyHtml));
         return Task.CompletedTask;
     }
 
     public Task SendAsync(MailMessage mail, bool normalize = true)
     {
+        if (ThrowOnSend)
+        {
+            throw new System.Exception("Simulated email failure.");
+        }
+
         var to = mail.To.Count > 0 ? mail.To[0].Address : string.Empty;
         sentEmails.Add(new SentEmailMessage(to, mail.Subject ?? string.Empty, mail.Body ?? string.Empty, mail.IsBodyHtml));
         return Task.CompletedTask;
@@ -33,12 +50,22 @@ public class TestEmailSender : IEmailSender
 
     public Task QueueAsync(string to, string subject, string body, bool isBodyHtml = true, AdditionalEmailSendingArgs? additionalEmailSendingArgs = null)
     {
+        if (ThrowOnSend)
+        {
+            throw new System.Exception("Simulated email failure.");
+        }
+
         sentEmails.Add(new SentEmailMessage(to, subject, body, isBodyHtml));
         return Task.CompletedTask;
     }
 
     public Task QueueAsync(string from, string to, string subject, string body, bool isBodyHtml = true, AdditionalEmailSendingArgs? additionalEmailSendingArgs = null)
     {
+        if (ThrowOnSend)
+        {
+            throw new System.Exception("Simulated email failure.");
+        }
+
         sentEmails.Add(new SentEmailMessage(to, subject, body, isBodyHtml));
         return Task.CompletedTask;
     }

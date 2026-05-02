@@ -42,7 +42,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         shell: powershell
         run: |
-          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" /d:sonar.coverage.exclusions="**/Migrations/**,**/*Dto.cs,**/*CreateDto.cs,**/*UpdateDto.cs,**/*CreateUpdateDto.cs,**/*GetListInputDto.cs"
+          ${{ runner.temp }}\scanner\dotnet-sonarscanner begin /k:"kmlyteixeira_garage-management-api-dotnet" /o:"kmlyteixeira" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.cs.cobertura.reportsPaths="**/coverage.cobertura.xml" /d:sonar.coverage.exclusions="**/Migrations/**,**/GarageManagement.DbMigrator/**,**/GarageManagement.HttpApi.Client/**,**/GarageManagement.HttpApi/**,src/GarageManagement.HttpApi.Host/GarageManagementHttpApiHostModule.cs,**/*Dto.cs,**/*CreateDto.cs,**/*UpdateDto.cs,**/*CreateUpdateDto.cs,**/*GetListInputDto.cs"
 
       - name: Build solution
         shell: powershell
