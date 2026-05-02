@@ -45,4 +45,42 @@ public class InventoryTests
 
         Should.Throw<InvalidOperationException>(() => inventory.DecreaseStock(3));
     }
+
+    [Fact]
+    public void Add_Stock_With_Negative_Amount_Should_Throw()
+    {
+        var inventory = new Inventory(new Product("Oleo", 50m), 10);
+
+        Should.Throw<ArgumentException>(() => inventory.AddStock(-1));
+    }
+
+    [Fact]
+    public void Decrease_Stock_With_Negative_Amount_Should_Throw()
+    {
+        var inventory = new Inventory(new Product("Bateria", 400m), 10);
+
+        Should.Throw<ArgumentException>(() => inventory.DecreaseStock(-1));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Reservation_Flows_Should_Reject_Non_Positive_Amounts(int amount)
+    {
+        var inventory = new Inventory(new Product("Pneu", 350m), 10);
+
+        Should.Throw<ArgumentException>(() => inventory.ReserveStock(amount));
+        Should.Throw<ArgumentException>(() => inventory.ReleaseReservedStock(amount));
+        Should.Throw<ArgumentException>(() => inventory.ConsumeReservedStock(amount));
+    }
+
+    [Fact]
+    public void Add_Stock_Should_Increase_Quantity()
+    {
+        var inventory = new Inventory(new Product("Filtro", 35m), 10);
+
+        inventory.AddStock(5);
+
+        inventory.Quantity.ShouldBe(15);
+    }
 }
