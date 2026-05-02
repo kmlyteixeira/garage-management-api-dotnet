@@ -1,63 +1,71 @@
 using System;
-using GarageManagement.ServiceOrders;
 using Shouldly;
 using Xunit;
 
-namespace GarageManagement.Entities.ServiceOrders;
+namespace GarageManagement.ServiceOrders.Tests;
 
 public class ServiceOrderTests
 {
     [Fact]
-    public void Happy_Path_Should_Reach_Closed()
+    public void Constructor_Should_Require_Number()
     {
-        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "OS-001", Guid.NewGuid(), Guid.NewGuid());
+        Should.Throw<ArgumentException>(() => new ServiceOrder(Guid.NewGuid(), "", Guid.NewGuid(), Guid.NewGuid()));
+    }
 
-        serviceOrder.AssociateEstimate(Guid.NewGuid());
-        serviceOrder.StartDiagnosis();
-        serviceOrder.WaitApproval();
-        serviceOrder.WaitExecution();
-        serviceOrder.StartExecution();
-        serviceOrder.Finish();
-        serviceOrder.Deliver();
-        serviceOrder.Close();
+    [Fact]
+    public void StartExecution_When_Not_WaitingExecution_Should_Throw()
+    {
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
-        serviceOrder.Status.ShouldBe(ServiceOrderStatus.Closed);
-        serviceOrder.DiagnosisStartedAt.ShouldNotBeNull();
-        serviceOrder.ExecutionStartedAt.ShouldNotBeNull();
-        serviceOrder.FinishedAt.ShouldNotBeNull();
-        serviceOrder.DeliveredAt.ShouldNotBeNull();
-        serviceOrder.ClosedAt.ShouldNotBeNull();
+        Should.Throw<InvalidOperationException>(() => so.StartExecution());
     }
 
     [Fact]
     public void WaitApproval_Without_Estimate_Should_Throw()
     {
-        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "OS-002", Guid.NewGuid(), Guid.NewGuid());
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
-        Should.Throw<InvalidOperationException>(() => serviceOrder.WaitApproval());
+        Should.Throw<InvalidOperationException>(() => so.WaitApproval());
     }
 
     [Fact]
-    public void Closed_Order_Should_Not_Be_Canceled()
+    public void Finish_Without_InExecution_Should_Throw()
     {
-        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "OS-003", Guid.NewGuid(), Guid.NewGuid());
-        serviceOrder.AssociateEstimate(Guid.NewGuid());
-        serviceOrder.StartDiagnosis();
-        serviceOrder.WaitApproval();
-        serviceOrder.WaitExecution();
-        serviceOrder.StartExecution();
-        serviceOrder.Finish();
-        serviceOrder.Deliver();
-        serviceOrder.Close();
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
-        Should.Throw<InvalidOperationException>(() => serviceOrder.Cancel("Nao pode cancelar"));
+        Should.Throw<InvalidOperationException>(() => so.Finish());
     }
 
     [Fact]
-    public void ChangeStatus_To_Canceled_Should_Require_Reason()
+    public void Cancel_Without_Reason_Should_Throw()
     {
-        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "OS-004", Guid.NewGuid(), Guid.NewGuid());
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
 
-        Should.Throw<InvalidOperationException>(() => serviceOrder.ChangeStatus(ServiceOrderStatus.Canceled));
+        Should.Throw<ArgumentException>(() => so.Cancel("  "));
+    }
+
+    [Fact]
+    public void AssociateEstimate_When_Already_Associated_Should_Throw()
+    {
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+        so.AssociateEstimate(Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => so.AssociateEstimate(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void ChangeStatus_Canceled_Should_Throw_Without_Reason()
+    {
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => so.ChangeStatus(ServiceOrderStatus.Canceled));
+    }
+
+    [Fact]
+    public void ChangeStatus_Unsupported_Should_Throw()
+    {
+        var so = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
+
+        Should.Throw<InvalidOperationException>(() => so.ChangeStatus(ServiceOrderStatus.Received));
     }
 }

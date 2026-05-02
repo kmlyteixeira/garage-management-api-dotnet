@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GarageManagement.Domain\GarageManagement.Domain.csproj" />
+    <ProjectReference Include="..\..\src\GarageManagement.HttpApi.Host\GarageManagement.HttpApi.Host.csproj" />
     <ProjectReference Include="..\GarageManagement.TestBase\GarageManagement.TestBase.csproj" />
   </ItemGroup>
 
