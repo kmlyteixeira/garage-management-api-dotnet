@@ -87,19 +87,22 @@ public class InventoryAppServiceIntegrationTests : GarageManagementEntityFramewo
     [Fact]
     public async Task ReserveStockAsync_Should_Throw_When_Product_Is_Not_In_Stock()
     {
-        await Should.ThrowAsync<UserFriendlyException>(() => inventoryAppService.ReserveStockAsync(Guid.NewGuid(), 1));
+        await WithUnitOfWorkAsync(() => Should.ThrowAsync<UserFriendlyException>(
+            () => inventoryAppService.ReserveStockAsync(Guid.NewGuid(), 1)));
     }
 
     [Fact]
     public async Task ReleaseReservedStockAsync_Should_Throw_When_Product_Is_Not_In_Stock()
     {
-        await Should.ThrowAsync<UserFriendlyException>(() => inventoryAppService.ReleaseReservedStockAsync(Guid.NewGuid(), 1));
+        await WithUnitOfWorkAsync(() => Should.ThrowAsync<UserFriendlyException>(
+            () => inventoryAppService.ReleaseReservedStockAsync(Guid.NewGuid(), 1)));
     }
 
     [Fact]
     public async Task ConsumeReservedStockAsync_Should_Throw_When_Product_Is_Not_In_Stock()
     {
-        await Should.ThrowAsync<UserFriendlyException>(() => inventoryAppService.ConsumeReservedStockAsync(Guid.NewGuid(), 1));
+        await WithUnitOfWorkAsync(() => Should.ThrowAsync<UserFriendlyException>(
+            () => inventoryAppService.ConsumeReservedStockAsync(Guid.NewGuid(), 1)));
     }
 
     [Fact]
