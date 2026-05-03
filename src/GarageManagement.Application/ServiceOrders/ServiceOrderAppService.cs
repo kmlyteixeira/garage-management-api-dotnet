@@ -98,7 +98,7 @@ public class ServiceOrderAppService :
         var normalizedPlate = input.LicensePlate;
 
         var customers = await customerRepository.GetQueryableAsync();
-        var customer = await AsyncExecuter.FirstOrDefaultAsync(customers, c => c.Document == new Document(normalizedDocument));
+        var customer = await AsyncExecuter.FirstOrDefaultAsync(customers, c => c.Document.Value == new Document(normalizedDocument).Value);
 
         if (customer is null)
         {
