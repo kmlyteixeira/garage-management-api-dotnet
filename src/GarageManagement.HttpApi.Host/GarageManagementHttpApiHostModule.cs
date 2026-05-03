@@ -172,8 +172,18 @@ public class GarageManagementHttpApiHostModule : AbpModule
                     if (controllerActionDescriptor == null) return true;
                     return controllerActionDescriptor.ControllerTypeInfo.Namespace?.StartsWith("GarageManagement.") == true;
                 });
-                options.CustomSchemaIds(type => type.FullName);
+                options.CustomSchemaIds(type =>
+                {
+                    if (!type.IsGenericType)
+                        return type.Name;
+
+                    var genericTypeName = type.Name.Substring(0, type.Name.IndexOf('`'));
+                    var genericArgs = string.Join("", type.GetGenericArguments().Select(t => t.Name));
+
+                    return $"{genericTypeName}{genericArgs}";
+                });
                 options.SchemaFilter<EnumDescriptionSchemaFilter>();
+                            options.DocumentFilter<SwaggerTagDescriptionFilter>();
             });
     }
 

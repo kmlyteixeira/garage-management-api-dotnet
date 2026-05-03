@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
 using GarageManagement.Permissions;
+using GarageManagement.Vehicles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Volo.Abp;
@@ -18,16 +20,19 @@ public class ServiceOrderAppService :
 {
     private readonly IServiceOrderUpdateMediator serviceOrderUpdateMediator;
     private readonly IRepository<Customer, Guid> customerRepository;
+    private readonly IRepository<Vehicle, Guid> vehicleRepository;
     private readonly IEmailSender emailSender;
 
     public ServiceOrderAppService(
         IRepository<ServiceOrder, Guid> repository,
         IServiceOrderUpdateMediator serviceOrderUpdateMediator,
         IRepository<Customer, Guid> customerRepository,
+        IRepository<Vehicle, Guid> vehicleRepository,
         IEmailSender emailSender) : base(repository)
     {
         this.serviceOrderUpdateMediator = serviceOrderUpdateMediator;
         this.customerRepository = customerRepository;
+        this.vehicleRepository = vehicleRepository;
         this.emailSender = emailSender;
 
         GetPolicyName = GarageManagementPermissions.ServiceOrders.Default;
@@ -77,6 +82,58 @@ public class ServiceOrderAppService :
         }
 
         return ObjectMapper.Map<ServiceOrder, ServiceOrderDto>(serviceOrder);
+    }
+
+    [AllowAnonymous]
+    public async Task<ServiceOrderPublicStatusDto> GetPublicStatusAsync(ServiceOrderPublicStatusRequestDto input)
+    {
+        if (string.IsNullOrWhiteSpace(input.Document) || string.IsNullOrWhiteSpace(input.LicensePlate))
+        {
+            throw new UserFriendlyException("Informe CPF/CNPJ e placa do veículo.");
+        }
+
+        input.Normalize();
+
+        var normalizedDocument = input.Document;
+        var normalizedPlate = input.LicensePlate;
+
+        var customers = await customerRepository.GetQueryableAsync();
+        var customer = await AsyncExecuter.FirstOrDefaultAsync(customers, c => c.Document == new Document(normalizedDocument));
+
+        if (customer is null)
+        {
+            throw new UserFriendlyException("Nenhuma ordem de serviço encontrada para os dados informados.");
+        }
+
+        var vehicles = await vehicleRepository.GetQueryableAsync();
+        var vehicle = await AsyncExecuter.FirstOrDefaultAsync(
+            vehicles,
+            v => v.LicensePlate
+                .Replace("-", string.Empty)
+                .Replace(" ", string.Empty)
+                .ToUpper() == normalizedPlate);
+
+        if (vehicle is null)
+        {
+            throw new UserFriendlyException("Nenhuma ordem de serviço encontrada para os dados informados.");
+        }
+
+        var serviceOrders = await Repository.GetQueryableAsync();
+        var serviceOrder = await AsyncExecuter.FirstOrDefaultAsync(serviceOrders
+            .Where(so => so.CustomerId == customer.Id && so.VehicleId == vehicle.Id)
+            .OrderByDescending(so => so.CreatedAt));
+
+        if (serviceOrder is null)
+        {
+            throw new UserFriendlyException("Nenhuma ordem de serviço encontrada para os dados informados.");
+        }
+
+        return new ServiceOrderPublicStatusDto
+        {
+            ServiceOrderNumber = serviceOrder.ServiceOrderNumber,
+            Status = serviceOrder.Status,
+            CreatedAt = serviceOrder.CreatedAt
+        };
     }
 
     private async Task NotifyCustomerOrderFinishedAsync(ServiceOrder serviceOrder)
