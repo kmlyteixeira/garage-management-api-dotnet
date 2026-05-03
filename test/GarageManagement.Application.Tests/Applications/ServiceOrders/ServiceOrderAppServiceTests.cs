@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
 using GarageManagement.ServiceOrders;
+using GarageManagement.Vehicles;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp.Domain.Repositories;
@@ -18,11 +19,12 @@ public class ServiceOrderAppServiceTests
         var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
         var emailSender = Substitute.For<IEmailSender>();
 
         repo.GetAsync(Arg.Any<Guid>()).Returns(Task.FromResult<ServiceOrder?>(null));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
 
         await Should.ThrowAsync<Volo.Abp.UserFriendlyException>(() => sut.UpdateAsync(Guid.NewGuid(), new ServiceOrderUpdateDto()));
     }
@@ -33,6 +35,7 @@ public class ServiceOrderAppServiceTests
         var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
         var emailSender = Substitute.For<IEmailSender>();
         var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
         var expected = new ServiceOrderDto();
@@ -40,7 +43,7 @@ public class ServiceOrderAppServiceTests
         repo.GetAsync(Arg.Any<Guid>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
         mediator.UpdateAsync(serviceOrder, Arg.Any<ServiceOrderUpdateDto>()).Returns(Task.FromResult(expected));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
 
         var result = await sut.UpdateAsync(Guid.NewGuid(), new ServiceOrderUpdateDto());
 
