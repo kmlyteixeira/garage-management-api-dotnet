@@ -1,0 +1,135 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: garagemanagement-postgres-scan
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-Server}
+      POSTGRES_USER: ${POSTGRES_USER:-garage_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "5432:5432"
+    volumes:
+      - garagemanagement-postgres-data-scan:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-garage_user} -d ${POSTGRES_DB:-Server}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - scan-network
+
+  db-migrator:
+    build:
+      context: .
+      dockerfile: src/GarageManagement.DbMigrator/Dockerfile
+    container_name: garagemanagement-db-migrator-scan
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+      OpenIddict__Applications__GarageManagement_Swagger__RootUrl: http://http-api-host:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - scan-network
+
+  http-api-host:
+    build:
+      context: .
+      dockerfile: src/GarageManagement.HttpApi.Host/Dockerfile
+    container_name: garagemanagement-http-api-host-scan
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      App__SelfUrl: http://http-api-host:8080
+      App__CorsOrigins: http://localhost:8080,http://localhost:4200
+      App__RedirectAllowedUrls: http://localhost:8080,http://localhost:4200
+      AuthServer__Authority: http://http-api-host:8080
+      AuthServer__RequireHttpsMetadata: "false"
+      ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrator:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    networks:
+      - scan-network
+
+  zap-scan:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: garagemanagement-zap-scan
+    depends_on:
+      http-api-host:
+        condition: service_started
+    volumes:
+      - ./reports/security:/zap/wrk:rw
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+
+        cat >/tmp/zap-api-scan.yaml <<'EOF'
+        env:
+          contexts:
+            - name: GarageManagement API
+              urls:
+                - http://http-api-host:8080
+        jobs:
+          - type: openapi
+            parameters:
+              apiUrl: http://http-api-host:8080/swagger/v1/swagger.json
+              targetUrl: http://http-api-host:8080
+          - type: activeScan
+          - type: passiveScan-wait
+          - type: report
+            parameters:
+              template: traditional-html
+              reportDir: /zap/wrk
+              reportFile: security_report.html
+              reportTitle: Garage Management API Security Scan
+          - type: report
+            parameters:
+              template: traditional-json
+              reportDir: /zap/wrk
+              reportFile: security_report.json
+        EOF
+
+        echo 'Iniciando varredura ZAP...'
+        set +e
+        /zap/zap.sh -cmd -addonupdate -autorun /tmp/zap-api-scan.yaml
+        zap_exit_code=$$?
+        set -e
+
+        timestamp=$$(date +%Y%m%d_%H%M%S)
+        if [ -f /zap/wrk/security_report.html ]; then
+          mv /zap/wrk/security_report.html /zap/wrk/security_report_$${timestamp}.html
+        fi
+        if [ -f /zap/wrk/security_report.json ]; then
+          mv /zap/wrk/security_report.json /zap/wrk/security_report_$${timestamp}.json
+        fi
+
+        if [ "$$zap_exit_code" -ge 3 ]; then
+          exit "$$zap_exit_code"
+        fi
+
+        exit 0
+    networks:
+      - scan-network
+    restart: "no"
+
+volumes:
+  garagemanagement-postgres-data-scan:
+
+networks:
+  scan-network:
+    driver: bridge
