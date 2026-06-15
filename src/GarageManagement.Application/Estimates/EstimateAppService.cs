@@ -14,14 +14,14 @@ namespace GarageManagement.Estimates;
 public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid, EstimateGetListInputDto>,
     IEstimateAppService
 {
-    private readonly IRepository<Estimate, Guid> estimateRepository;
+    private readonly IEstimateRepository estimateRepository;
     private readonly IRepository<EstimateProductItem, Guid> estimateProductItemRepository;
     private readonly IRepository<ServiceOrder, Guid> serviceOrderRepository;
     private readonly IInventoryAppService inventoryAppService;
 
     public EstimateAppService(
         IReadOnlyRepository<Estimate, Guid> repository,
-        IRepository<Estimate, Guid> estimateRepository,
+        IEstimateRepository estimateRepository,
         IRepository<EstimateProductItem, Guid> estimateProductItemRepository,
         IRepository<ServiceOrder, Guid> serviceOrderRepository,
         IInventoryAppService inventoryAppService) : base(repository)
@@ -35,10 +35,19 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
         GetListPolicyName = GarageManagementPermissions.Estimates.Default;
     }
 
+    [Authorize(GarageManagementPermissions.Estimates.Default)]
+    public override async Task<EstimateDto> GetAsync(Guid id)
+    {
+        var estimate = await estimateRepository.GetWithDetailsAsync(id)
+            ?? throw new UserFriendlyException("Orçamento não encontrado.");
+
+        return ObjectMapper.Map<Estimate, EstimateDto>(estimate);
+    }
+
     [Authorize(GarageManagementPermissions.Estimates.Approve)]
     public async Task<EstimateDto> ApproveAsync(Guid id)
     {
-        var estimate = await estimateRepository.GetAsync(id, includeDetails: true)
+        var estimate = await estimateRepository.GetWithDetailsAsync(id)
             ?? throw new UserFriendlyException("Orçamento não encontrado.");
 
         var estimatePartItems = await estimateProductItemRepository.GetListAsync(item => item.EstimateId == estimate.Id);
@@ -79,7 +88,7 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
             throw new UserFriendlyException("Informe o motivo da reprovação do orçamento.");
         }
 
-        var estimate = await estimateRepository.GetAsync(id, includeDetails: true)
+        var estimate = await estimateRepository.GetWithDetailsAsync(id)
             ?? throw new UserFriendlyException("Orçamento não encontrado.");
 
         var estimatePartItems = await estimateProductItemRepository.GetListAsync(item => item.EstimateId == estimate.Id);

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using GarageManagement.Permissions;
 using Volo.Abp;
@@ -18,6 +19,18 @@ namespace GarageManagement.Inventories
             CreatePolicyName = GarageManagementPermissions.Inventories.Create;
             UpdatePolicyName = GarageManagementPermissions.Inventories.Edit;
             DeletePolicyName = GarageManagementPermissions.Inventories.Delete;
+        }
+
+        protected override async Task<IQueryable<Inventory>> CreateFilteredQueryAsync(InventoryGetListInputDto input)
+        {
+            var queryable = await base.CreateFilteredQueryAsync(input);
+
+            if (input.ProductId.HasValue)
+            {
+                queryable = queryable.Where(inventory => inventory.ProductId == input.ProductId.Value);
+            }
+
+            return queryable;
         }
 
         [RemoteService(false)]

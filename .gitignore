@@ -267,3 +267,4 @@ src/GarageManagement.DbMigrator/Logs/*
 
 docs/diagrams
 docs/architecture/*.puml
+ROTEIRO.md

@@ -97,18 +97,19 @@ public class ServiceOrderAppService :
         var normalizedDocument = input.Document;
         var normalizedPlate = input.LicensePlate;
 
-        var customers = await customerRepository.GetQueryableAsync();
-        var customer = await AsyncExecuter.FirstOrDefaultAsync(customers, c => c.Document.Value == new Document(normalizedDocument).Value);
+        var customersQuery = await customerRepository.GetQueryableAsync();
+        var customersList = await AsyncExecuter.ToListAsync(customersQuery);
+        var customer = customersList.FirstOrDefault(c => c.Document.Value.Equals(normalizedDocument, StringComparison.OrdinalIgnoreCase));
 
         if (customer is null)
         {
             throw new UserFriendlyException("Nenhuma ordem de serviço encontrada para os dados informados.");
         }
 
-        var vehicles = await vehicleRepository.GetQueryableAsync();
-        var vehicle = await AsyncExecuter.FirstOrDefaultAsync(
-            vehicles,
-            v => v.LicensePlate
+        var vehiclesQuery = await vehicleRepository.GetQueryableAsync();
+        var vehiclesList = await AsyncExecuter.ToListAsync(vehiclesQuery);
+        var vehicle = vehiclesList.FirstOrDefault(v =>
+            v.LicensePlate
                 .Replace("-", string.Empty)
                 .Replace(" ", string.Empty)
                 .ToUpper() == normalizedPlate);
@@ -118,10 +119,13 @@ public class ServiceOrderAppService :
             throw new UserFriendlyException("Nenhuma ordem de serviço encontrada para os dados informados.");
         }
 
-        var serviceOrders = await Repository.GetQueryableAsync();
-        var serviceOrder = await AsyncExecuter.FirstOrDefaultAsync(serviceOrders
+        // Fetch service orders and filter in memory
+        var serviceOrdersQuery = await Repository.GetQueryableAsync();
+        var serviceOrdersList = await AsyncExecuter.ToListAsync(serviceOrdersQuery);
+        var serviceOrder = serviceOrdersList
             .Where(so => so.CustomerId == customer.Id && so.VehicleId == vehicle.Id)
-            .OrderByDescending(so => so.CreatedAt));
+            .OrderByDescending(so => so.CreatedAt)
+            .FirstOrDefault();
 
         if (serviceOrder is null)
         {

@@ -16,7 +16,6 @@ public class EstimateDto : EntityDto<Guid>
     public DateTime? ApprovedAt { get; set; }
     public DateTime? RejectedAt { get; set; }
     public string? RejectionReason { get; set; }
-    public Guid? ConvertedToServiceOrderId { get; set; }
     public List<EstimateServiceItemDto> ServiceItems { get; set; } = new();
     public List<EstimateProductItemDto> PartItems { get; set; } = new();
 }
