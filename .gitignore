@@ -268,3 +268,17 @@ src/GarageManagement.DbMigrator/Logs/*
 docs/diagrams
 docs/architecture/*.puml
 ROTEIRO.md
+
+# Terraform
+infra/**/.terraform/
+infra/**/.terraform.tfstate.lock.info
+infra/**/.terraform.lock.hcl
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/terraform.tfvars
+infra/**/*.tfplan
+infra/**/crash.log
+
+# Kubeconfig / cloud credentials
+kubeconfig*
+*.pem
