@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using GarageManagement.Permissions;
+using GarageManagement.Shared;
 using Volo.Abp.Application.Services;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -26,7 +27,7 @@ namespace GarageManagement.Customers
             {
                 return await base.CreateAsync(input);
             }
-            catch (Exception ex) when (ContainsConstraintName(ex, "IX_AppCustomers_Document"))
+            catch (Exception ex) when (DbConstraintExceptionHelper.ContainsConstraintName(ex, "IX_AppCustomers_Document"))
             {
                 throw new UserFriendlyException("Ja existe um cliente cadastrado com este documento.");
             }
@@ -38,20 +39,10 @@ namespace GarageManagement.Customers
             {
                 return await base.UpdateAsync(id, input);
             }
-            catch (Exception ex) when (ContainsConstraintName(ex, "IX_AppCustomers_Document"))
+            catch (Exception ex) when (DbConstraintExceptionHelper.ContainsConstraintName(ex, "IX_AppCustomers_Document"))
             {
                 throw new UserFriendlyException("Ja existe um cliente cadastrado com este documento.");
             }
-        }
-
-        private static bool ContainsConstraintName(Exception ex, string constraintName)
-        {
-            if (ex.Message.Contains(constraintName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return ex.InnerException != null && ContainsConstraintName(ex.InnerException, constraintName);
         }
     }
 }

@@ -1,7 +1,7 @@
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
+using GarageManagement.Shared;
 using Shouldly;
 using Xunit;
 
@@ -66,24 +66,15 @@ public class CustomerAppServiceIntegrationTests : GarageManagementEntityFramewor
     [Fact]
     public void ContainsConstraintName_Should_Detect_In_Nested_Exceptions()
     {
-        var method = typeof(CustomerAppService).GetMethod("ContainsConstraintName", BindingFlags.NonPublic | BindingFlags.Static);
-        method.ShouldNotBeNull();
-
         var constraintName = "IX_AppCustomers_Document";
         var nestedException = new Exception("outer", new Exception($"duplicate key value violates unique constraint \"{constraintName}\""));
-        var result = (bool)method!.Invoke(null, new object[] { nestedException, constraintName })!;
 
-        result.ShouldBeTrue();
+        DbConstraintExceptionHelper.ContainsConstraintName(nestedException, constraintName).ShouldBeTrue();
     }
 
     [Fact]
     public void ContainsConstraintName_Should_Return_False_When_Missing()
     {
-        var method = typeof(CustomerAppService).GetMethod("ContainsConstraintName", BindingFlags.NonPublic | BindingFlags.Static);
-        method.ShouldNotBeNull();
-
-        var result = (bool)method!.Invoke(null, new object[] { new Exception("no match"), "IX_AppCustomers_Document" })!;
-
-        result.ShouldBeFalse();
+        DbConstraintExceptionHelper.ContainsConstraintName(new Exception("no match"), "IX_AppCustomers_Document").ShouldBeFalse();
     }
 }

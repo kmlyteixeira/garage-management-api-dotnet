@@ -27,6 +27,19 @@ RUN dotnet publish "GarageManagement.HttpApi.Host.csproj" -c Release -o /app/pub
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-COPY --from=build /app/publish .
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& useradd --uid 1654 --user-group --create-home app \
+	&& mkdir -p /home/app/.aspnet/DataProtection-Keys \
+	&& chown -R app:app /home/app
+
+COPY --from=build --chown=app:app /app/publish .
+
+USER app
+ENV HOME=/home/app
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD curl -f http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "GarageManagement.HttpApi.Host.dll"]

@@ -16,14 +16,14 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
 {
     private readonly IEstimateRepository estimateRepository;
     private readonly IRepository<EstimateProductItem, Guid> estimateProductItemRepository;
-    private readonly IRepository<ServiceOrder, Guid> serviceOrderRepository;
+    private readonly IServiceOrderRepository serviceOrderRepository;
     private readonly IInventoryAppService inventoryAppService;
 
     public EstimateAppService(
         IReadOnlyRepository<Estimate, Guid> repository,
         IEstimateRepository estimateRepository,
         IRepository<EstimateProductItem, Guid> estimateProductItemRepository,
-        IRepository<ServiceOrder, Guid> serviceOrderRepository,
+        IServiceOrderRepository serviceOrderRepository,
         IInventoryAppService inventoryAppService) : base(repository)
     {
         this.estimateRepository = estimateRepository;
@@ -68,7 +68,7 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
 
         estimate.Approve();
 
-        var serviceOrder = await GetServiceOrderByEstimateIdAsync(estimate.Id);
+        var serviceOrder = await serviceOrderRepository.FindByEstimateIdAsync(estimate.Id);
         if (serviceOrder != null && serviceOrder.Status is ServiceOrderStatus.WaitingApproval)
         {
             serviceOrder.WaitExecution();
@@ -109,7 +109,7 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
 
         estimate.Reject(input.Reason);
 
-        var serviceOrder = await GetServiceOrderByEstimateIdAsync(estimate.Id);
+        var serviceOrder = await serviceOrderRepository.FindByEstimateIdAsync(estimate.Id);
         if (serviceOrder != null && serviceOrder.Status is not ServiceOrderStatus.Canceled and not ServiceOrderStatus.Closed)
         {
             serviceOrder.Cancel(input.Reason);
@@ -119,11 +119,5 @@ public class EstimateAppService : ReadOnlyAppService<Estimate, EstimateDto, Guid
         await estimateRepository.UpdateAsync(estimate, autoSave: true);
 
         return ObjectMapper.Map<Estimate, EstimateDto>(estimate);
-    }
-
-    private async Task<ServiceOrder?> GetServiceOrderByEstimateIdAsync(Guid estimateId)
-    {
-        var queryable = await serviceOrderRepository.GetQueryableAsync();
-        return await AsyncExecuter.FirstOrDefaultAsync(queryable.Where(order => order.EstimateId == estimateId));
     }
 }

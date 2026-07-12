@@ -62,3 +62,103 @@ jobs:
         shell: powershell
         run: |
           ${{ runner.temp }}\scanner\dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+
+  docker-build-push:
+    name: Build & push Docker images
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api-image: ${{ steps.build.outputs.api-image }}
+      db-migrator-image: ${{ steps.build.outputs.db-migrator-image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Build & push images to GHCR
+        id: build
+        run: |
+          set -e
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          API_IMAGE="ghcr.io/${REPO_LOWER}-api:${{ github.sha }}"
+          DB_MIGRATOR_IMAGE="ghcr.io/${REPO_LOWER}-db-migrator:${{ github.sha }}"
+          docker build -f src/GarageManagement.HttpApi.Host/Dockerfile -t "$API_IMAGE" .
+          docker build -f src/GarageManagement.DbMigrator/Dockerfile -t "$DB_MIGRATOR_IMAGE" .
+          docker push "$API_IMAGE"
+          docker push "$DB_MIGRATOR_IMAGE"
+          echo "api-image=$API_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "db-migrator-image=$DB_MIGRATOR_IMAGE" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    env:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      STRING_ENCRYPTION_PASSPHRASE: ${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Terraform
+        if: ${{ env.TF_API_TOKEN != '' && env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          TF_VERSION=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*' | cut -d'"' -f4)
+          curl -fsSL -o terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+          unzip -o terraform.zip
+          sudo mv terraform /usr/local/bin/
+
+      - name: Read Terraform outputs
+        if: ${{ env.TF_API_TOKEN != '' && env.AWS_ACCESS_KEY_ID != '' }}
+        id: tf-outputs
+        working-directory: infra
+        env:
+          TF_TOKEN_app_terraform_io: ${{ env.TF_API_TOKEN }}
+        run: |
+          set -e
+          terraform init
+          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> "$GITHUB_OUTPUT"
+          echo "rds_port=$(terraform output -raw rds_port)" >> "$GITHUB_OUTPUT"
+          echo "rds_database_name=$(terraform output -raw rds_database_name)" >> "$GITHUB_OUTPUT"
+          echo "eks_cluster_name=$(terraform output -raw eks_cluster_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure kubeconfig
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: aws eks update-kubeconfig --name "${{ steps.tf-outputs.outputs.eks_cluster_name }}" --region us-east-1
+
+      - name: Create/update api-secret
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          kubectl create namespace garage-management --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic api-secret \
+            --namespace garage-management \
+            --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ env.DB_PASSWORD }};" \
+            --from-literal=StringEncryption__DefaultPassPhrase="${{ env.STRING_ENCRYPTION_PASSPHRASE }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Substitute image tags and apply manifests
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          sed -i "s|API_IMAGE|${{ needs.docker-build-push.outputs.api-image }}|" k8s/api/deployment.yaml
+          sed -i "s|DB_MIGRATOR_IMAGE|${{ needs.docker-build-push.outputs.db-migrator-image }}|" k8s/db-migrator/job.yaml
+          # Jobs are immutable once created, and every deploy changes the image tag, so the
+          # previous run's Job must be removed before applying the new one.
+          kubectl delete job db-migrator -n garage-management --ignore-not-found=true
+          kubectl apply -k k8s/
+
+      - name: Wait for rollout
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: kubectl rollout status deployment/api -n garage-management --timeout=180s

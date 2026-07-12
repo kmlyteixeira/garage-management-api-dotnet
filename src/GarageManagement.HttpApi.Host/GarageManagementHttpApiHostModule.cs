@@ -86,6 +86,8 @@ public class GarageManagementHttpApiHostModule : AbpModule
         ConfigureCors(context, configuration);
         ConfigureJsonOptions(context);
         ConfigureSwaggerServices(context, configuration);
+
+        context.Services.AddHealthChecks();
     }
 
     private void ConfigureAuthentication(ServiceConfigurationContext context)
@@ -233,6 +235,7 @@ public class GarageManagementHttpApiHostModule : AbpModule
         app.UseCorrelationId();
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseHealthChecks("/health");
         app.UseCors();
         app.UseAuthentication();
         app.UseAbpOpenIddictValidation();

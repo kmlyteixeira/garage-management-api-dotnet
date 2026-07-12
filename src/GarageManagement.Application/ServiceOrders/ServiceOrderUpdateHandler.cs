@@ -6,12 +6,11 @@ using GarageManagement.Customers;
 using GarageManagement.Estimates;
 using GarageManagement.Inventories;
 using GarageManagement.Products;
+using GarageManagement.ServiceOrders.Notifications;
 using GarageManagement.Services;
-using Microsoft.Extensions.Logging;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
-using Volo.Abp.Emailing;
 
 namespace GarageManagement.ServiceOrders;
 
@@ -24,7 +23,7 @@ public class ServiceOrderUpdateHandler : ApplicationService, IServiceOrderUpdate
     private readonly IRepository<Product, Guid> productRepository;
 
     private readonly IInventoryAppService inventoryAppService;
-    private readonly IEmailSender emailSender;
+    private readonly IServiceOrderNotificationSender notificationSender;
 
     public ServiceOrderUpdateHandler(
         IRepository<ServiceOrder, Guid> serviceOrderRepository,
@@ -33,7 +32,7 @@ public class ServiceOrderUpdateHandler : ApplicationService, IServiceOrderUpdate
         IRepository<Service, Guid> serviceRepository,
         IRepository<Product, Guid> productRepository,
         IInventoryAppService inventoryAppService,
-        IEmailSender emailSender)
+        IServiceOrderNotificationSender notificationSender)
     {
         this.serviceOrderRepository = serviceOrderRepository;
         this.estimateRepository = estimateRepository;
@@ -41,7 +40,7 @@ public class ServiceOrderUpdateHandler : ApplicationService, IServiceOrderUpdate
         this.serviceRepository = serviceRepository;
         this.productRepository = productRepository;
         this.inventoryAppService = inventoryAppService;
-        this.emailSender = emailSender;
+        this.notificationSender = notificationSender;
     }
 
     [RemoteService(false)]
@@ -237,25 +236,6 @@ public class ServiceOrderUpdateHandler : ApplicationService, IServiceOrderUpdate
     private async Task NotifyCustomerEstimatePendingApprovalAsync(Estimate estimate)
     {
         var customer = await customerRepository.GetAsync(estimate.CustomerId);
-        if (string.IsNullOrWhiteSpace(customer.Email))
-        {
-            return;
-        }
-
-        var subject = $"Orçamento {estimate.EstimateNumber} aguardando aprovação";
-        var body =
-            $"Olá, {customer.Name}!\n\n" +
-            $"Seu orçamento {estimate.EstimateNumber} está aguardando sua aprovação.\n" +
-            $"Valor total: {estimate.TotalAmount:C}.\n\n" +
-            "Acesse o portal para aprovar ou reprovar.";
-
-        try
-        {
-            await emailSender.SendAsync(customer.Email, subject, body);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Falha ao enviar e-mail de aprovação para o orçamento {EstimateId}.", estimate.Id);
-        }
+        await notificationSender.NotifyEstimatePendingApprovalAsync(estimate, customer);
     }
 }

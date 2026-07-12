@@ -7,6 +7,8 @@ public class ServiceOrderDto : EntityDto<Guid>
 {
     public string ServiceOrderNumber { get; set; } = string.Empty;
     public Guid? EstimateId { get; set; }
+    public Guid CustomerId { get; set; }
+    public Guid VehicleId { get; set; }
     public ServiceOrderStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? DiagnosisStartedAt { get; set; }
