@@ -4,7 +4,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Reflection;
 using GarageManagement.Estimates;
 using GarageManagement.Inventories;
 using GarageManagement.Products;
@@ -21,11 +20,14 @@ namespace GarageManagement.Application.Tests.Applications.Estimates;
 
 public class EstimateAppServiceTests
 {
+    // ObjectMapper is a get-only property on ApplicationService, resolved as
+    // LazyServiceProvider.LazyGetService<IObjectMapper>(Func<IServiceProvider,object>), so it must
+    // be stubbed via that exact overload on the lazy provider rather than set directly.
     private static void SetObjectMapper(EstimateAppService sut, IObjectMapper objectMapper)
     {
-        typeof(Volo.Abp.Application.Services.ApplicationService)
-            .GetProperty("ObjectMapper", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-            ?.SetValue(sut, objectMapper);
+        var lazyProvider = sut.LazyServiceProvider ?? Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetService<IObjectMapper>(Arg.Any<Func<IServiceProvider, object>>()).Returns(objectMapper);
+        sut.LazyServiceProvider = lazyProvider;
     }
 
     private static IAsyncQueryableExecuter CreateInMemoryExecuter()
@@ -42,14 +44,14 @@ public class EstimateAppServiceTests
     private static EstimateAppService CreateSut(
         IEstimateRepository? estimateRepository = null,
         IRepository<EstimateProductItem, Guid>? estimateProductItemRepository = null,
-        IRepository<ServiceOrder, Guid>? serviceOrderRepository = null,
+        IServiceOrderRepository? serviceOrderRepository = null,
         IInventoryAppService? inventoryAppService = null)
     {
         var sut = new EstimateAppService(
             Substitute.For<IReadOnlyRepository<Estimate, Guid>>(),
             estimateRepository ?? Substitute.For<IEstimateRepository>(),
             estimateProductItemRepository ?? Substitute.For<IRepository<EstimateProductItem, Guid>>(),
-            serviceOrderRepository ?? Substitute.For<IRepository<ServiceOrder, Guid>>(),
+            serviceOrderRepository ?? Substitute.For<IServiceOrderRepository>(),
             inventoryAppService ?? Substitute.For<IInventoryAppService>());
 
         var executer = CreateInMemoryExecuter();
@@ -76,7 +78,7 @@ public class EstimateAppServiceTests
     {
         var estimateRepository = Substitute.For<IEstimateRepository>();
         var estimateProductItemRepository = Substitute.For<IRepository<EstimateProductItem, Guid>>();
-        var serviceOrderRepository = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var serviceOrderRepository = Substitute.For<IServiceOrderRepository>();
         var inventoryAppService = Substitute.For<IInventoryAppService>();
 
         var estimate = new Estimate(Guid.NewGuid(), "EST-1", Guid.NewGuid(), Guid.NewGuid());
@@ -92,11 +94,12 @@ public class EstimateAppServiceTests
 
         estimateRepository.GetWithDetailsAsync(estimate.Id).Returns(Task.FromResult(estimate));
         estimateProductItemRepository.GetListAsync(default!, default, default).ReturnsForAnyArgs(Task.FromResult(partItems));
-        serviceOrderRepository.GetQueryableAsync().Returns(Task.FromResult(new List<ServiceOrder> { serviceOrder }.AsQueryable()));
+        serviceOrderRepository.FindByEstimateIdAsync(estimate.Id).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
 
         var sut = CreateSut(estimateRepository, estimateProductItemRepository, serviceOrderRepository, inventoryAppService);
         var objectMapper = Substitute.For<IObjectMapper>();
-        objectMapper.Map<Estimate, EstimateDto>(Arg.Any<Estimate>()).Returns(new EstimateDto());
+        objectMapper.Map<Estimate, EstimateDto>(Arg.Any<Estimate>())
+            .Returns(ci => new EstimateDto { Status = ((Estimate)ci[0]).Status });
         SetObjectMapper(sut, objectMapper);
 
         var result = await sut.ApproveAsync(estimate.Id);
@@ -122,7 +125,7 @@ public class EstimateAppServiceTests
     {
         var estimateRepository = Substitute.For<IEstimateRepository>();
         var estimateProductItemRepository = Substitute.For<IRepository<EstimateProductItem, Guid>>();
-        var serviceOrderRepository = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var serviceOrderRepository = Substitute.For<IServiceOrderRepository>();
         var inventoryAppService = Substitute.For<IInventoryAppService>();
 
         var estimate = new Estimate(Guid.NewGuid(), "EST-2", Guid.NewGuid(), Guid.NewGuid());
@@ -138,11 +141,12 @@ public class EstimateAppServiceTests
 
         estimateRepository.GetWithDetailsAsync(estimate.Id).Returns(Task.FromResult(estimate));
         estimateProductItemRepository.GetListAsync(default!, default, default).ReturnsForAnyArgs(Task.FromResult(partItems));
-        serviceOrderRepository.GetQueryableAsync().Returns(Task.FromResult(new List<ServiceOrder> { serviceOrder }.AsQueryable()));
+        serviceOrderRepository.FindByEstimateIdAsync(estimate.Id).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
 
         var sut = CreateSut(estimateRepository, estimateProductItemRepository, serviceOrderRepository, inventoryAppService);
         var objectMapper = Substitute.For<IObjectMapper>();
-        objectMapper.Map<Estimate, EstimateDto>(Arg.Any<Estimate>()).Returns(new EstimateDto());
+        objectMapper.Map<Estimate, EstimateDto>(Arg.Any<Estimate>())
+            .Returns(ci => new EstimateDto { Status = ((Estimate)ci[0]).Status });
         SetObjectMapper(sut, objectMapper);
 
         var result = await sut.RejectAsync(estimate.Id, new EstimateRejectDto { Reason = "Cliente recusou" });

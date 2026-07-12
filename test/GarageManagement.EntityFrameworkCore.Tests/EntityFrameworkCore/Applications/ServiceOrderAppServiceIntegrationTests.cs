@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
 using GarageManagement.EntityFrameworkCore.TestDoubles;
@@ -119,9 +120,10 @@ public class ServiceOrderAppServiceIntegrationTests : GarageManagementEntityFram
             updated.DeliveredAt.ShouldNotBeNull();
             updated.ClosedAt.ShouldNotBeNull();
 
-            testEmailSender.SentEmails.Count.ShouldBe(1);
+            // Notified once for each customer-relevant transition reached: WaitingApproval, InExecution, Finished, Delivered.
+            testEmailSender.SentEmails.Count.ShouldBe(4);
+            testEmailSender.SentEmails.ShouldAllBe(message => message.To == customer.Email);
             testEmailSender.SentEmails.ShouldContain(message =>
-                message.To == customer.Email &&
                 message.Subject.Contains(serviceOrder.ServiceOrderNumber));
         });
     }
@@ -247,6 +249,95 @@ public class ServiceOrderAppServiceIntegrationTests : GarageManagementEntityFram
 
             var persisted = await serviceOrderRepository.GetAsync(serviceOrder.Id);
             persisted.Status.ShouldBe(ServiceOrderStatus.InDiagnosis);
+        });
+    }
+
+    [Fact]
+    public async Task GetListAsync_Should_Order_By_Status_Priority_Then_Oldest_First_And_Exclude_Finalized_By_Default()
+    {
+        testEmailSender.Clear();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var customer = new Customer($"Cliente {suffix}", $"{suffix}@mail.com", "11999999999", new Document($"DOC{suffix}"));
+        var vehicle = new Vehicle("Chevrolet", "Onix", 2022, $"BCD{suffix}");
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            await customerRepository.InsertAsync(customer, autoSave: true);
+            await vehicleRepository.InsertAsync(vehicle, autoSave: true);
+
+            var receivedOld = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-REC-OLD", customer.Id, vehicle.Id);
+            await serviceOrderRepository.InsertAsync(receivedOld, autoSave: true);
+            await Task.Delay(50);
+
+            var receivedNew = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-REC-NEW", customer.Id, vehicle.Id);
+            await serviceOrderRepository.InsertAsync(receivedNew, autoSave: true);
+
+            var inDiagnosis = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-DIAG", customer.Id, vehicle.Id);
+            inDiagnosis.StartDiagnosis();
+            await serviceOrderRepository.InsertAsync(inDiagnosis, autoSave: true);
+
+            var waitingApprovalEstimate = new Estimate(Guid.NewGuid(), $"EST-{suffix}-WA", customer.Id, vehicle.Id);
+            await estimateRepository.InsertAsync(waitingApprovalEstimate, autoSave: true);
+            var waitingApproval = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-WA", customer.Id, vehicle.Id);
+            waitingApproval.StartDiagnosis();
+            waitingApproval.AssociateEstimate(waitingApprovalEstimate.Id);
+            waitingApproval.WaitApproval();
+            await serviceOrderRepository.InsertAsync(waitingApproval, autoSave: true);
+
+            var inExecutionEstimate = new Estimate(Guid.NewGuid(), $"EST-{suffix}-IE", customer.Id, vehicle.Id);
+            await estimateRepository.InsertAsync(inExecutionEstimate, autoSave: true);
+            var inExecution = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-IE", customer.Id, vehicle.Id);
+            inExecution.StartDiagnosis();
+            inExecution.AssociateEstimate(inExecutionEstimate.Id);
+            inExecution.WaitApproval();
+            inExecution.WaitExecution();
+            inExecution.StartExecution();
+            await serviceOrderRepository.InsertAsync(inExecution, autoSave: true);
+
+            var deliveredEstimate = new Estimate(Guid.NewGuid(), $"EST-{suffix}-DEL", customer.Id, vehicle.Id);
+            await estimateRepository.InsertAsync(deliveredEstimate, autoSave: true);
+            var delivered = new ServiceOrder(Guid.NewGuid(), $"OS-{suffix}-DEL", customer.Id, vehicle.Id);
+            delivered.StartDiagnosis();
+            delivered.AssociateEstimate(deliveredEstimate.Id);
+            delivered.WaitApproval();
+            delivered.WaitExecution();
+            delivered.StartExecution();
+            delivered.Finish();
+            delivered.Deliver();
+            await serviceOrderRepository.InsertAsync(delivered, autoSave: true);
+
+            var defaultResult = await serviceOrderAppService.GetListAsync(new ServiceOrderGetListInputDto
+            {
+                MaxResultCount = 100
+            });
+
+            var defaultNumbers = defaultResult.Items
+                .Where(so => so.ServiceOrderNumber.Contains(suffix))
+                .Select(so => so.ServiceOrderNumber)
+                .ToList();
+
+            defaultNumbers.ShouldBe(new[]
+            {
+                $"OS-{suffix}-IE",
+                $"OS-{suffix}-WA",
+                $"OS-{suffix}-DIAG",
+                $"OS-{suffix}-REC-OLD",
+                $"OS-{suffix}-REC-NEW"
+            });
+
+            var withFinalizedResult = await serviceOrderAppService.GetListAsync(new ServiceOrderGetListInputDto
+            {
+                MaxResultCount = 100,
+                IncludeFinalized = true
+            });
+
+            var withFinalizedNumbers = withFinalizedResult.Items
+                .Where(so => so.ServiceOrderNumber.Contains(suffix))
+                .Select(so => so.ServiceOrderNumber)
+                .ToList();
+
+            withFinalizedNumbers.ShouldContain($"OS-{suffix}-DEL");
+            withFinalizedNumbers.Count.ShouldBe(6);
         });
     }
 }

@@ -1,6 +1,6 @@
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
+using GarageManagement.Shared;
 using GarageManagement.Vehicles;
 using Shouldly;
 using Volo.Abp;
@@ -87,12 +87,8 @@ public class VehicleAppServiceIntegrationTests : GarageManagementEntityFramework
     [Fact]
     public void ContainsConstraintName_Should_Detect_In_Nested_Exceptions()
     {
-        var method = typeof(VehicleAppService).GetMethod("ContainsConstraintName", BindingFlags.NonPublic | BindingFlags.Static);
-        method.ShouldNotBeNull();
-
         var nestedException = new Exception("outer", new Exception("duplicate key value violates unique constraint \"IX_AppVehicles_LicensePlate\""));
-        var result = (bool)method!.Invoke(null, new object[] { nestedException, "IX_AppVehicles_LicensePlate" })!;
 
-        result.ShouldBeTrue();
+        DbConstraintExceptionHelper.ContainsConstraintName(nestedException, "IX_AppVehicles_LicensePlate").ShouldBeTrue();
     }
 }

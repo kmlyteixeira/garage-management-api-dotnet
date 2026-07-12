@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
 using GarageManagement.ServiceOrders;
+using GarageManagement.ServiceOrders.Notifications;
 using GarageManagement.Vehicles;
 using NSubstitute;
 using Shouldly;
 using Volo.Abp;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
-using Volo.Abp.Emailing;
 using Volo.Abp.Linq;
 using Volo.Abp.ObjectMapping;
 using Xunit;
@@ -22,11 +21,14 @@ namespace GarageManagement.Application.Tests.Applications.ServiceOrders;
 
 public class ServiceOrderAppServiceTests
 {
+    // ObjectMapper is a get-only property on ApplicationService, resolved as
+    // LazyServiceProvider.LazyGetService<IObjectMapper>(Func<IServiceProvider,object>), so it must
+    // be stubbed via that exact overload on the lazy provider rather than set directly.
     private static void SetObjectMapper(ServiceOrderAppService sut, IObjectMapper objectMapper)
     {
-        typeof(Volo.Abp.Application.Services.ApplicationService)
-            .GetProperty("ObjectMapper", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-            ?.SetValue(sut, objectMapper);
+        var lazyProvider = sut.LazyServiceProvider ?? Substitute.For<IAbpLazyServiceProvider>();
+        lazyProvider.LazyGetService<IObjectMapper>(Arg.Any<Func<IServiceProvider, object>>()).Returns(objectMapper);
+        sut.LazyServiceProvider = lazyProvider;
     }
 
     // Evaluates IAsyncQueryableExecuter calls in-memory so we can test without a real DB
@@ -67,14 +69,16 @@ public class ServiceOrderAppServiceTests
     private static ServiceOrderAppService CreateSut(
         IRepository<ServiceOrder, Guid>? repo = null,
         IRepository<Customer, Guid>? customerRepo = null,
-        IRepository<Vehicle, Guid>? vehicleRepo = null)
+        IRepository<Vehicle, Guid>? vehicleRepo = null,
+        IServiceOrderUpdateMediator? mediator = null,
+        IServiceOrderNotificationSender? notificationSender = null)
     {
         var sut = new ServiceOrderAppService(
             repo ?? Substitute.For<IRepository<ServiceOrder, Guid>>(),
-            Substitute.For<IServiceOrderUpdateMediator>(),
+            mediator ?? Substitute.For<IServiceOrderUpdateMediator>(),
             customerRepo ?? Substitute.For<IRepository<Customer, Guid>>(),
             vehicleRepo ?? Substitute.For<IRepository<Vehicle, Guid>>(),
-            Substitute.For<IEmailSender>());
+            notificationSender ?? Substitute.For<IServiceOrderNotificationSender>());
 
         // AsyncExecuter is protected; it's resolved from LazyServiceProvider which is public.
         // The executer must be created before .Returns() to avoid NSubstitute call-recording interference.
@@ -93,11 +97,11 @@ public class ServiceOrderAppServiceTests
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
         var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
-        var emailSender = Substitute.For<IEmailSender>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
 
         repo.GetAsync(Arg.Any<Guid>()).Returns(Task.FromResult<ServiceOrder?>(null));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
 
         await Should.ThrowAsync<Volo.Abp.UserFriendlyException>(() => sut.UpdateAsync(Guid.NewGuid(), new ServiceOrderUpdateDto()));
     }
@@ -109,14 +113,14 @@ public class ServiceOrderAppServiceTests
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
         var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
-        var emailSender = Substitute.For<IEmailSender>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
         var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-1", Guid.NewGuid(), Guid.NewGuid());
         var expected = new ServiceOrderDto();
 
         repo.GetAsync(Arg.Any<Guid>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
         mediator.UpdateAsync(serviceOrder, Arg.Any<ServiceOrderUpdateDto>()).Returns(Task.FromResult(expected));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
 
         var result = await sut.UpdateAsync(Guid.NewGuid(), new ServiceOrderUpdateDto());
 
@@ -131,25 +135,25 @@ public class ServiceOrderAppServiceTests
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
         var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
-        var emailSender = Substitute.For<IEmailSender>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
         var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-2", Guid.NewGuid(), Guid.NewGuid());
 
         repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
 
         await Should.ThrowAsync<UserFriendlyException>(() =>
             sut.UpdateStatusAsync(Guid.NewGuid(), new ServiceOrderUpdateStatusDto { Status = null }));
     }
 
     [Fact]
-    public async Task UpdateStatusAsync_Should_Send_Email_When_ServiceOrder_Is_Finished()
+    public async Task UpdateStatusAsync_Should_Notify_Customer_When_ServiceOrder_Is_Finished()
     {
         var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
         var mediator = Substitute.For<IServiceOrderUpdateMediator>();
         var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
         var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
-        var emailSender = Substitute.For<IEmailSender>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
 
         var customer = new Customer("João", "joao@email.com", "11999999999", new Document("12345678901"));
         var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-3", customer.Id, Guid.NewGuid());
@@ -162,9 +166,10 @@ public class ServiceOrderAppServiceTests
         repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
         customerRepo.GetAsync(serviceOrder.CustomerId).Returns(Task.FromResult(customer));
 
-        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
         var objectMapper = Substitute.For<IObjectMapper>();
-        objectMapper.Map<ServiceOrder, ServiceOrderDto>(Arg.Any<ServiceOrder>()).Returns(new ServiceOrderDto());
+        objectMapper.Map<ServiceOrder, ServiceOrderDto>(Arg.Any<ServiceOrder>())
+            .Returns(ci => new ServiceOrderDto { Status = ((ServiceOrder)ci[0]).Status });
         SetObjectMapper(sut, objectMapper);
 
         var result = await sut.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.Finished });
@@ -172,12 +177,105 @@ public class ServiceOrderAppServiceTests
         result.Status.ShouldBe(ServiceOrderStatus.Finished);
         serviceOrder.Status.ShouldBe(ServiceOrderStatus.Finished);
         await repo.Received(1).UpdateAsync(serviceOrder, autoSave: true);
-        await emailSender.Received(1).SendAsync(
-            customer.Email,
-            Arg.Is<string>(subject => subject.Contains(serviceOrder.ServiceOrderNumber)),
-            Arg.Is<string>(body => body.Contains(serviceOrder.ServiceOrderNumber)),
-            Arg.Any<bool>(),
-            Arg.Any<AdditionalEmailSendingArgs>());
+        await notificationSender.Received(1).NotifyStatusChangedAsync(serviceOrder, customer);
+    }
+
+    [Theory]
+    [InlineData(ServiceOrderStatus.InExecution)]
+    [InlineData(ServiceOrderStatus.Delivered)]
+    public async Task UpdateStatusAsync_Should_Notify_Customer_On_Other_Relevant_Transitions(ServiceOrderStatus targetStatus)
+    {
+        var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var mediator = Substitute.For<IServiceOrderUpdateMediator>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
+
+        var customer = new Customer("Maria", "maria@email.com", "11988888888", new Document("98765432100"));
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-4", customer.Id, Guid.NewGuid());
+        serviceOrder.StartDiagnosis();
+        serviceOrder.AssociateEstimate(Guid.NewGuid());
+        serviceOrder.WaitApproval();
+        serviceOrder.WaitExecution();
+        if (targetStatus == ServiceOrderStatus.Delivered)
+        {
+            // Delivered can only be reached from Finished, which in turn requires InExecution.
+            serviceOrder.StartExecution();
+            serviceOrder.Finish();
+        }
+
+        repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
+        customerRepo.GetAsync(serviceOrder.CustomerId).Returns(Task.FromResult(customer));
+
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
+        var objectMapper = Substitute.For<IObjectMapper>();
+        objectMapper.Map<ServiceOrder, ServiceOrderDto>(Arg.Any<ServiceOrder>()).Returns(new ServiceOrderDto());
+        SetObjectMapper(sut, objectMapper);
+
+        await sut.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = targetStatus });
+
+        serviceOrder.Status.ShouldBe(targetStatus);
+        await notificationSender.Received(1).NotifyStatusChangedAsync(serviceOrder, customer);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Should_Not_Notify_Customer_On_Non_Relevant_Transitions()
+    {
+        var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var mediator = Substitute.For<IServiceOrderUpdateMediator>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
+        var notificationSender = Substitute.For<IServiceOrderNotificationSender>();
+
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-5", Guid.NewGuid(), Guid.NewGuid());
+
+        repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
+
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, notificationSender);
+        var objectMapper = Substitute.For<IObjectMapper>();
+        objectMapper.Map<ServiceOrder, ServiceOrderDto>(Arg.Any<ServiceOrder>()).Returns(new ServiceOrderDto());
+        SetObjectMapper(sut, objectMapper);
+
+        await sut.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.InDiagnosis });
+
+        serviceOrder.Status.ShouldBe(ServiceOrderStatus.InDiagnosis);
+        await customerRepo.DidNotReceive().GetAsync(Arg.Any<Guid>());
+        await notificationSender.DidNotReceive().NotifyStatusChangedAsync(Arg.Any<ServiceOrder>(), Arg.Any<Customer>());
+    }
+
+    [Fact]
+    public async Task OpenAsync_Should_Create_ServiceOrder_Start_Diagnosis_And_Delegate_Items_To_Mediator()
+    {
+        var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var mediator = Substitute.For<IServiceOrderUpdateMediator>();
+        var customerId = Guid.NewGuid();
+        var vehicleId = Guid.NewGuid();
+        var expected = new ServiceOrderDto();
+
+        mediator
+            .UpdateAsync(Arg.Is<ServiceOrder>(so => so.Status == ServiceOrderStatus.InDiagnosis), Arg.Any<ServiceOrderUpdateDto>())
+            .Returns(Task.FromResult(expected));
+
+        var sut = CreateSut(repo: repo, mediator: mediator);
+
+        var input = new ServiceOrderOpenDto
+        {
+            ServiceOrderNumber = "OS-OPEN-1",
+            CustomerId = customerId,
+            VehicleId = vehicleId,
+            ServiceItems = new List<ServiceOrderServiceItemCreateDto> { new() { ServiceId = Guid.NewGuid(), Quantity = 1 } },
+            PartItems = new List<ServiceOrderProductItemCreateDto> { new() { ProductId = Guid.NewGuid(), Quantity = 2 } }
+        };
+
+        var result = await sut.OpenAsync(input);
+
+        result.ShouldBe(expected);
+        await repo.Received(1).InsertAsync(Arg.Is<ServiceOrder>(so =>
+            so.ServiceOrderNumber == "OS-OPEN-1" && so.CustomerId == customerId && so.VehicleId == vehicleId), autoSave: true);
+        await repo.Received(1).UpdateAsync(Arg.Is<ServiceOrder>(so => so.Status == ServiceOrderStatus.InDiagnosis), autoSave: true);
+        await mediator.Received(1).UpdateAsync(
+            Arg.Any<ServiceOrder>(),
+            Arg.Is<ServiceOrderUpdateDto>(dto => dto.ServiceItems == input.ServiceItems && dto.PartItems == input.PartItems));
     }
 
     [Fact]
