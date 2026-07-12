@@ -92,70 +92,22 @@ jobs:
           echo "api-image=$API_IMAGE" >> "$GITHUB_OUTPUT"
           echo "db-migrator-image=$DB_MIGRATOR_IMAGE" >> "$GITHUB_OUTPUT"
 
-  terraform:
-    name: Terraform validate/plan/apply
-    runs-on: ubuntu-latest
-    needs: build
-    defaults:
-      run:
-        working-directory: infra
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: Install Terraform
-        run: |
-          set -e
-          TF_VERSION=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*' | cut -d'"' -f4)
-          curl -fsSL -o terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
-          unzip -o terraform.zip
-          sudo mv terraform /usr/local/bin/
-          terraform version
-
-      - name: Terraform fmt check
-        run: terraform fmt -check -recursive
-
-      # Runs without touching the real HCP Terraform backend so validation works even
-      # before TF_API_TOKEN is configured (e.g. on every PR).
-      - name: Terraform init (local, no backend)
-        run: terraform init -backend=false
-
-      - name: Terraform validate
-        run: terraform validate
-
-      - name: Terraform init (HCP Terraform backend)
-        if: ${{ secrets.TF_API_TOKEN != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
-        env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-        run: terraform init -reconfigure
-
-      - name: Terraform plan
-        if: ${{ secrets.TF_API_TOKEN != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
-        env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-        run: terraform plan -out=tfplan
-
-      - name: Terraform apply
-        if: ${{ secrets.TF_API_TOKEN != '' && secrets.AWS_ACCESS_KEY_ID != '' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-        env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-        run: terraform apply -auto-approve tfplan
-
   deploy:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
-    needs: [docker-build-push, terraform]
+    needs: docker-build-push
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    env:
+      TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      STRING_ENCRYPTION_PASSPHRASE: ${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install Terraform
-        if: ${{ secrets.TF_API_TOKEN != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.TF_API_TOKEN != '' && env.AWS_ACCESS_KEY_ID != '' }}
         run: |
           set -e
           TF_VERSION=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/terraform | grep -o '"current_version":"[^"]*' | cut -d'"' -f4)
@@ -164,11 +116,11 @@ jobs:
           sudo mv terraform /usr/local/bin/
 
       - name: Read Terraform outputs
-        if: ${{ secrets.TF_API_TOKEN != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.TF_API_TOKEN != '' && env.AWS_ACCESS_KEY_ID != '' }}
         id: tf-outputs
         working-directory: infra
         env:
-          TF_TOKEN_app_terraform_io: ${{ secrets.TF_API_TOKEN }}
+          TF_TOKEN_app_terraform_io: ${{ env.TF_API_TOKEN }}
         run: |
           set -e
           terraform init
@@ -178,26 +130,26 @@ jobs:
           echo "eks_cluster_name=$(terraform output -raw eks_cluster_name)" >> "$GITHUB_OUTPUT"
 
       - name: Configure kubeconfig
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ env.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-east-1
         run: aws eks update-kubeconfig --name "${{ steps.tf-outputs.outputs.eks_cluster_name }}" --region us-east-1
 
       - name: Create/update api-secret
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
         run: |
           set -e
           kubectl create namespace garage-management --dry-run=client -o yaml | kubectl apply -f -
           kubectl create secret generic api-secret \
             --namespace garage-management \
-            --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ secrets.DB_PASSWORD }};" \
-            --from-literal=StringEncryption__DefaultPassPhrase="${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}" \
+            --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ env.DB_PASSWORD }};" \
+            --from-literal=StringEncryption__DefaultPassPhrase="${{ env.STRING_ENCRYPTION_PASSPHRASE }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Substitute image tags and apply manifests
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
         run: |
           set -e
           sed -i "s|API_IMAGE|${{ needs.docker-build-push.outputs.api-image }}|" k8s/api/deployment.yaml
@@ -208,5 +160,5 @@ jobs:
           kubectl apply -k k8s/
 
       - name: Wait for rollout
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
         run: kubectl rollout status deployment/api -n garage-management --timeout=180s
