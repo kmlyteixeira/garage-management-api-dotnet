@@ -101,6 +101,8 @@ jobs:
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       STRING_ENCRYPTION_PASSPHRASE: ${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}
     steps:
@@ -161,6 +163,33 @@ jobs:
             --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ env.DB_PASSWORD }};" \
             --from-literal=StringEncryption__DefaultPassPhrase="${{ env.STRING_ENCRYPTION_PASSPHRASE }}" \
             --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create/update GHCR pull secret
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          if [ -z "${GHCR_USERNAME}" ] || [ -z "${GHCR_READ_TOKEN}" ]; then
+            echo "GHCR_USERNAME and GHCR_READ_TOKEN must be configured to pull the private images from GHCR."
+            exit 1
+          fi
+
+          kubectl create secret docker-registry ghcr-registry \
+            --namespace garage-management \
+            --docker-server=ghcr.io \
+            --docker-username="${GHCR_USERNAME}" \
+            --docker-password="${GHCR_READ_TOKEN}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Install Metrics Server
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          kubectl -n kube-system patch deployment metrics-server --type='json' -p='[
+            {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"},
+            {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname"}
+          ]'
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
 
       - name: Substitute image tags and apply manifests
         if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
