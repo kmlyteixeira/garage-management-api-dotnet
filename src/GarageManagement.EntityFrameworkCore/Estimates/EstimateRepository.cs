@@ -4,6 +4,7 @@ using GarageManagement.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.Domain.Repositories.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.Domain.Entities;
 
 namespace GarageManagement.Estimates;
 
@@ -25,6 +26,6 @@ public class EstimateRepository : EfCoreRepository<GarageManagementDbContext, Es
             .Include(e => e.PartItems)
                 .ThenInclude(p => p.Product)
             .FirstOrDefaultAsync(s => s.Id == id)
-            ?? throw new Exception("Estimate not found.");
+            ?? throw new EntityNotFoundException(typeof(Estimate), id);
     }
 }

@@ -8,6 +8,7 @@ using GarageManagement.Products;
 using GarageManagement.Services;
 using GarageManagement.Vehicles;
 using Shouldly;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 using Xunit;
 
@@ -69,9 +70,7 @@ public class EstimateRepositoryTests : GarageManagementEntityFrameworkCoreTestBa
     {
         await WithUnitOfWorkAsync(async () =>
         {
-            var exception = await Should.ThrowAsync<Exception>(() => estimateRepository.GetWithDetailsAsync(Guid.NewGuid()));
-
-            exception.Message.ShouldBe("Estimate not found.");
+            await Should.ThrowAsync<EntityNotFoundException>(() => estimateRepository.GetWithDetailsAsync(Guid.NewGuid()));
         });
     }
 }
