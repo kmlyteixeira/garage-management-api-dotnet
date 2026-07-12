@@ -124,10 +124,24 @@ jobs:
         run: |
           set -e
           terraform init
-          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> "$GITHUB_OUTPUT"
-          echo "rds_port=$(terraform output -raw rds_port)" >> "$GITHUB_OUTPUT"
-          echo "rds_database_name=$(terraform output -raw rds_database_name)" >> "$GITHUB_OUTPUT"
-          echo "eks_cluster_name=$(terraform output -raw eks_cluster_name)" >> "$GITHUB_OUTPUT"
+          rds_endpoint="$(terraform output -raw rds_endpoint || true)"
+          rds_port="$(terraform output -raw rds_port || true)"
+          rds_database_name="$(terraform output -raw rds_database_name || true)"
+          eks_cluster_name="$(terraform output -raw eks_cluster_name || true)"
+
+          if [ -z "$eks_cluster_name" ]; then
+            eks_cluster_name="eks-garage-management-api-terraform"
+          fi
+
+          if [ -z "$rds_endpoint" ] || [ -z "$rds_port" ] || [ -z "$rds_database_name" ]; then
+            echo "Terraform outputs are missing. Verify the infra workspace was applied and still contains the RDS outputs."
+            exit 1
+          fi
+
+          echo "rds_endpoint=$rds_endpoint" >> "$GITHUB_OUTPUT"
+          echo "rds_port=$rds_port" >> "$GITHUB_OUTPUT"
+          echo "rds_database_name=$rds_database_name" >> "$GITHUB_OUTPUT"
+          echo "eks_cluster_name=$eks_cluster_name" >> "$GITHUB_OUTPUT"
 
       - name: Configure kubeconfig
         if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
