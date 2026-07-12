@@ -31,7 +31,6 @@ WORKDIR /app
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends curl \
 	&& rm -rf /var/lib/apt/lists/* \
-	&& useradd --uid 1654 --user-group --create-home app \
 	&& mkdir -p /home/app/.aspnet/DataProtection-Keys \
 	&& chown -R app:app /home/app
 
