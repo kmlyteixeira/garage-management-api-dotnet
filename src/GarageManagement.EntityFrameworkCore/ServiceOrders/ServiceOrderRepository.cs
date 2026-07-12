@@ -4,6 +4,7 @@ using GarageManagement.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.Domain.Repositories.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.Domain.Entities;
 
 namespace GarageManagement.ServiceOrders;
 
@@ -23,6 +24,6 @@ public class ServiceOrderRepository : EfCoreRepository<GarageManagementDbContext
             .Include(s => s.Estimate)
                 .ThenInclude(e => e.ServiceItems)
             .FirstOrDefaultAsync(s => s.Id == id)
-            ?? throw new Exception("Service order not found.");
+            ?? throw new EntityNotFoundException(typeof(ServiceOrder), id);
     }
 }

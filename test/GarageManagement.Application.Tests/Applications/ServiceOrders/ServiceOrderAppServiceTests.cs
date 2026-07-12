@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using GarageManagement.Customers;
@@ -14,16 +15,36 @@ using Volo.Abp.DependencyInjection;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Emailing;
 using Volo.Abp.Linq;
+using Volo.Abp.ObjectMapping;
 using Xunit;
 
 namespace GarageManagement.Application.Tests.Applications.ServiceOrders;
 
 public class ServiceOrderAppServiceTests
 {
+    private static void SetObjectMapper(ServiceOrderAppService sut, IObjectMapper objectMapper)
+    {
+        typeof(Volo.Abp.Application.Services.ApplicationService)
+            .GetProperty("ObjectMapper", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            ?.SetValue(sut, objectMapper);
+    }
+
     // Evaluates IAsyncQueryableExecuter calls in-memory so we can test without a real DB
     private static IAsyncQueryableExecuter CreateInMemoryExecuter()
     {
         var executer = Substitute.For<IAsyncQueryableExecuter>();
+
+        executer
+            .ToListAsync(Arg.Any<IQueryable<Customer>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult(((IQueryable<Customer>)ci[0]).ToList()));
+
+        executer
+            .ToListAsync(Arg.Any<IQueryable<Vehicle>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult(((IQueryable<Vehicle>)ci[0]).ToList()));
+
+        executer
+            .ToListAsync(Arg.Any<IQueryable<ServiceOrder>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult(((IQueryable<ServiceOrder>)ci[0]).ToList()));
 
         executer
             .FirstOrDefaultAsync(Arg.Any<IQueryable<Customer>>(), Arg.Any<Expression<Func<Customer, bool>>>(), Arg.Any<CancellationToken>())
@@ -101,6 +122,62 @@ public class ServiceOrderAppServiceTests
 
         result.ShouldBe(expected);
         await mediator.Received(1).UpdateAsync(serviceOrder, Arg.Any<ServiceOrderUpdateDto>());
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Should_Throw_When_Status_Is_Missing()
+    {
+        var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var mediator = Substitute.For<IServiceOrderUpdateMediator>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
+        var emailSender = Substitute.For<IEmailSender>();
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-2", Guid.NewGuid(), Guid.NewGuid());
+
+        repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
+
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+
+        await Should.ThrowAsync<UserFriendlyException>(() =>
+            sut.UpdateStatusAsync(Guid.NewGuid(), new ServiceOrderUpdateStatusDto { Status = null }));
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_Should_Send_Email_When_ServiceOrder_Is_Finished()
+    {
+        var repo = Substitute.For<IRepository<ServiceOrder, Guid>>();
+        var mediator = Substitute.For<IServiceOrderUpdateMediator>();
+        var customerRepo = Substitute.For<IRepository<Customer, Guid>>();
+        var vehicleRepo = Substitute.For<IRepository<Vehicle, Guid>>();
+        var emailSender = Substitute.For<IEmailSender>();
+
+        var customer = new Customer("João", "joao@email.com", "11999999999", new Document("12345678901"));
+        var serviceOrder = new ServiceOrder(Guid.NewGuid(), "SO-3", customer.Id, Guid.NewGuid());
+        serviceOrder.StartDiagnosis();
+        serviceOrder.AssociateEstimate(Guid.NewGuid());
+        serviceOrder.WaitApproval();
+        serviceOrder.WaitExecution();
+        serviceOrder.StartExecution();
+
+        repo.GetAsync(Arg.Any<Guid>(), Arg.Any<bool>()).Returns(Task.FromResult<ServiceOrder?>(serviceOrder));
+        customerRepo.GetAsync(serviceOrder.CustomerId).Returns(Task.FromResult(customer));
+
+        var sut = new ServiceOrderAppService(repo, mediator, customerRepo, vehicleRepo, emailSender);
+        var objectMapper = Substitute.For<IObjectMapper>();
+        objectMapper.Map<ServiceOrder, ServiceOrderDto>(Arg.Any<ServiceOrder>()).Returns(new ServiceOrderDto());
+        SetObjectMapper(sut, objectMapper);
+
+        var result = await sut.UpdateStatusAsync(serviceOrder.Id, new ServiceOrderUpdateStatusDto { Status = ServiceOrderStatus.Finished });
+
+        result.Status.ShouldBe(ServiceOrderStatus.Finished);
+        serviceOrder.Status.ShouldBe(ServiceOrderStatus.Finished);
+        await repo.Received(1).UpdateAsync(serviceOrder, autoSave: true);
+        await emailSender.Received(1).SendAsync(
+            customer.Email,
+            Arg.Is<string>(subject => subject.Contains(serviceOrder.ServiceOrderNumber)),
+            Arg.Is<string>(body => body.Contains(serviceOrder.ServiceOrderNumber)),
+            Arg.Any<bool>(),
+            Arg.Any<AdditionalEmailSendingArgs>());
     }
 
     [Fact]

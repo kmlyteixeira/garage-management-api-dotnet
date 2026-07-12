@@ -8,6 +8,7 @@ public class EstimateServiceItem : Entity<Guid>
 {
     public Guid EstimateId { get; private set; }
     public Guid ServiceId { get; private set; }
+    public virtual Service Service { get; private set; }
     public int Quantity { get; private set; }
     public decimal TotalPrice { get; private set; }
 
@@ -25,6 +26,7 @@ public class EstimateServiceItem : Entity<Guid>
 
         EstimateId = estimate.Id;
         ServiceId = service.Id;
+        Service = service;
         Quantity = quantity;
         TotalPrice = service.Price * quantity;
     }
@@ -37,6 +39,7 @@ public class EstimateServiceItem : Entity<Guid>
         }
 
         ServiceId = service.Id;
+        Service = service;
         Quantity = quantity;
         TotalPrice = service.Price * quantity;
     }
