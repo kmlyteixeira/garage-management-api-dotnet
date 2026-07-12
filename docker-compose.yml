@@ -50,6 +50,7 @@ services:
       AuthServer__Authority: http://localhost:8080
       AuthServer__RequireHttpsMetadata: "false"
       ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
+      StringEncryption__DefaultPassPhrase: ${STRING_ENCRYPTION_PASSPHRASE:?STRING_ENCRYPTION_PASSPHRASE is required}
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,7 +59,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - garagemanagement-data-protection:/root/.aspnet/DataProtection-Keys
+      - garagemanagement-data-protection:/home/app/.aspnet/DataProtection-Keys
 
 volumes:
   garagemanagement-postgres-data:

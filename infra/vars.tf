@@ -19,3 +19,21 @@ variable "tags" {
 variable "instance_type" {
   default = "t3.medium"
 }
+
+variable "db_instance_class" {
+  default = "db.t3.micro"
+}
+
+variable "db_name" {
+  default = "GarageManagement"
+}
+
+variable "db_username" {
+  default = "garage_user"
+}
+
+variable "db_password" {
+  description = "Postgres master password. Must be provided via TF_VAR_db_password, never committed."
+  type        = string
+  sensitive   = true
+}
