@@ -7,4 +7,6 @@ namespace GarageManagement.ServiceOrders;
 public interface IServiceOrderRepository : IRepository<ServiceOrder, Guid>
 {
     Task<ServiceOrder> GetWithDetailsAsync(Guid id);
+
+    Task<ServiceOrder?> FindByEstimateIdAsync(Guid estimateId);
 }

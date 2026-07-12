@@ -26,4 +26,11 @@ public class ServiceOrderRepository : EfCoreRepository<GarageManagementDbContext
             .FirstOrDefaultAsync(s => s.Id == id)
             ?? throw new EntityNotFoundException(typeof(ServiceOrder), id);
     }
+
+    public async Task<ServiceOrder?> FindByEstimateIdAsync(Guid estimateId)
+    {
+        var query = await GetDbSetAsync();
+
+        return await query.FirstOrDefaultAsync(s => s.EstimateId == estimateId);
+    }
 }

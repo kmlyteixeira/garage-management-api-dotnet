@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using GarageManagement.Permissions;
+using GarageManagement.Shared;
 using Volo.Abp.Application.Services;
 using Volo.Abp;
 using Volo.Abp.Domain.Repositories;
@@ -28,7 +29,7 @@ namespace GarageManagement.Vehicles
             {
                 return await base.CreateAsync(input);
             }
-            catch (Exception ex) when (ContainsConstraintName(ex, "IX_AppVehicles_LicensePlate"))
+            catch (Exception ex) when (DbConstraintExceptionHelper.ContainsConstraintName(ex, "IX_AppVehicles_LicensePlate"))
             {
                 throw new UserFriendlyException("Ja existe um veiculo cadastrado com esta placa.");
             }
@@ -42,7 +43,7 @@ namespace GarageManagement.Vehicles
             {
                 return await base.UpdateAsync(id, input);
             }
-            catch (Exception ex) when (ContainsConstraintName(ex, "IX_AppVehicles_LicensePlate"))
+            catch (Exception ex) when (DbConstraintExceptionHelper.ContainsConstraintName(ex, "IX_AppVehicles_LicensePlate"))
             {
                 throw new UserFriendlyException("Ja existe um veiculo cadastrado com esta placa.");
             }
@@ -62,16 +63,6 @@ namespace GarageManagement.Vehicles
             {
                 throw new UserFriendlyException("Ja existe um veiculo cadastrado com esta placa.");
             }
-        }
-
-        private static bool ContainsConstraintName(Exception ex, string constraintName)
-        {
-            if (ex.Message.Contains(constraintName, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            return ex.InnerException != null && ContainsConstraintName(ex.InnerException, constraintName);
         }
     }
 }
