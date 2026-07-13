@@ -28,6 +28,12 @@ spec:
                 name: api-config
             - secretRef:
                 name: api-secret
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health

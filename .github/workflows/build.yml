@@ -154,6 +154,36 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: aws eks update-kubeconfig --name "${{ steps.tf-outputs.outputs.eks_cluster_name }}" --region us-east-1
 
+      - name: Create namespace and Service
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        run: |
+          set -e
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/api/service.yaml
+
+      - name: Resolve API load balancer URL
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
+        id: api-url
+        run: |
+          set -e
+          api_url=""
+
+          for _ in $(seq 1 60); do
+            hostname="$(kubectl get svc api -n garage-management -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+            if [ -n "$hostname" ]; then
+              api_url="https://${hostname}"
+              echo "api-url=$api_url" >> "$GITHUB_OUTPUT"
+              break
+            fi
+
+            sleep 10
+          done
+
+          if [ -z "$api_url" ]; then
+            echo "Timed out waiting for the API load balancer hostname."
+            exit 1
+          fi
+
       - name: Create/update api-secret
         if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
         run: |
@@ -195,6 +225,7 @@ jobs:
           set -e
           sed -i "s|API_IMAGE|${{ needs.docker-build-push.outputs.api-image }}|" k8s/api/deployment.yaml
           sed -i "s|DB_MIGRATOR_IMAGE|${{ needs.docker-build-push.outputs.db-migrator-image }}|" k8s/db-migrator/job.yaml
+          sed -i "s|CHANGE_ME.example.com|${{ steps.api-url.outputs.api-url }}|g" k8s/api/configmap.yaml
           # Jobs are immutable once created, and every deploy changes the image tag, so the
           # previous run's Job must be removed before applying the new one.
           kubectl delete job db-migrator -n garage-management --ignore-not-found=true
@@ -202,4 +233,4 @@ jobs:
 
       - name: Wait for rollout
         if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
-        run: kubectl rollout status deployment/api -n garage-management --timeout=180s
+        run: kubectl rollout status deployment/api -n garage-management --timeout=600s
