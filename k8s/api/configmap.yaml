@@ -6,13 +6,13 @@ metadata:
 data:
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
-  # Replace with the real public URL of the api Service (LoadBalancer DNS or your own domain)
-  # once it is known - Swagger's OAuth flow and CORS depend on this matching the actual origin.
-  App__SelfUrl: "http://CHANGE_ME.example.com"
-  App__CorsOrigins: "http://CHANGE_ME.example.com"
-  App__RedirectAllowedUrls: "http://CHANGE_ME.example.com"
-  AuthServer__Authority: "http://CHANGE_ME.example.com"
+  # Replace with the real public URL of the api Service (LoadBalancer DNS or your own domain).
+  # The deploy workflow replaces CHANGE_ME.example.com with the full https://... URL.
+  App__SelfUrl: "CHANGE_ME.example.com"
+  App__CorsOrigins: "CHANGE_ME.example.com"
+  App__RedirectAllowedUrls: "CHANGE_ME.example.com"
+  AuthServer__Authority: "CHANGE_ME.example.com"
   AuthServer__RequireHttpsMetadata: "false"
   AuthServer__SwaggerClientId: "GarageManagement_Swagger"
   # Consumed by the db-migrator Job, not by the api Deployment itself.
-  OpenIddict__Applications__GarageManagement_Swagger__RootUrl: "http://CHANGE_ME.example.com"
+  OpenIddict__Applications__GarageManagement_Swagger__RootUrl: "CHANGE_ME.example.com"
