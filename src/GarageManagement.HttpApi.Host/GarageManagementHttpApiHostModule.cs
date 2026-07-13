@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc;
@@ -86,6 +88,7 @@ public class GarageManagementHttpApiHostModule : AbpModule
         ConfigureCors(context, configuration);
         ConfigureJsonOptions(context);
         ConfigureSwaggerServices(context, configuration);
+        ConfigureDataProtection(context);
 
         context.Services.AddHealthChecks();
     }
@@ -97,6 +100,15 @@ public class GarageManagementHttpApiHostModule : AbpModule
         {
             options.IsDynamicClaimsEnabled = true;
         });
+    }
+
+    private static void ConfigureDataProtection(ServiceConfigurationContext context)
+    {
+        // Persists the antiforgery/authentication key ring to Postgres so all API
+        // replicas share the same keys; otherwise login fails with 400 whenever the
+        // GET (login page) and POST (submit credentials) land on different pods.
+        context.Services.AddDataProtection()
+            .PersistKeysToDbContext<GarageManagementDbContext>();
     }
 
     private void ConfigureBundles()

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using GarageManagement.Customers;
 using GarageManagement.Estimates;
 using GarageManagement.Inventories;
@@ -29,7 +30,8 @@ namespace GarageManagement.EntityFrameworkCore;
 public class GarageManagementDbContext :
     AbpDbContext<GarageManagementDbContext>,
     IIdentityDbContext,
-    ITenantManagementDbContext
+    ITenantManagementDbContext,
+    IDataProtectionKeyContext
 {
     /* Add DbSet properties for your Aggregate Roots / Entities here. */
 
@@ -68,6 +70,9 @@ public class GarageManagementDbContext :
     public DbSet<EstimateServiceItem> EstimateServiceItems { get; set; }
     public DbSet<EstimateProductItem> EstimateProductItems { get; set; }
     public DbSet<ServiceOrder> ServiceOrders { get; set; }
+
+    // Data Protection (shared antiforgery/authentication key ring across replicas)
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
     #endregion
 
