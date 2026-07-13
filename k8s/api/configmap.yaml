@@ -7,7 +7,7 @@ data:
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
   # Replace with the real public URL of the api Service (LoadBalancer DNS or your own domain).
-  # The deploy workflow replaces CHANGE_ME.example.com with the full https://... URL.
+  # The deploy workflow replaces CHANGE_ME.example.com with the full http://... URL.
   App__SelfUrl: "CHANGE_ME.example.com"
   App__CorsOrigins: "CHANGE_ME.example.com"
   App__RedirectAllowedUrls: "CHANGE_ME.example.com"
