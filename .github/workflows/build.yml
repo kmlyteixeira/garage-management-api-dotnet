@@ -171,7 +171,7 @@ jobs:
           for _ in $(seq 1 60); do
             hostname="$(kubectl get svc api -n garage-management -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
             if [ -n "$hostname" ]; then
-              api_url="https://${hostname}"
+              api_url="http://${hostname}"
               echo "api-url=$api_url" >> "$GITHUB_OUTPUT"
               break
             fi
