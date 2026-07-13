@@ -17,6 +17,14 @@ resource "aws_security_group" "db_sg" {
     security_groups = [aws_security_group.sg.id]
   }
 
+  ingress {
+    description = "Postgres from within the VPC"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [var.cidr_vpc]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
