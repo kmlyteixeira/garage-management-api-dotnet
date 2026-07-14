@@ -3,9 +3,26 @@
 ## Sobre o projeto
 Repositório reservado para o desenvolvimento de um MVP do back-end do sistema de uma oficina, com foco na gestão de ordens de serviço, clientes e peças.
 
+## Sumário
+
+- [Fase 2 — Evolução da aplicação e infraestrutura](#fase-2--evolução-da-aplicação-e-infraestrutura)
+- [Arquitetura](#arquitetura)
+- [Tecnologias Utilizadas](#-tecnologias-utilizadas)
+- [Banco de Dados](#-banco-de-dados)
+- [Execute o projeto](#-execute-o-projeto)
+- [Infraestrutura como Código (Terraform)](#-infraestrutura-como-código-terraform)
+- [Deploy em Kubernetes](#-deploy-em-kubernetes)
+- [Documentação da API](#-documentação-da-api)
+- [Testes Automatizados](#-testes-automatizados)
+- [Análise de Vulnerabilidades (OWASP ZAP)](#-análise-de-vulnerabilidades-owasp-zap)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Documentações](#-documentações)
+- [Vídeo de demonstração (Fase 2)](#-vídeo-de-demonstração-fase-2)
+- [Referências](#-referências)
+
 ---
 
-## 🚀 Fase 2 — Evolução da aplicação e infraestrutura
+## Fase 2 — Evolução da aplicação e infraestrutura
 
 A Fase 2 evolui o MVP da Fase 1 em duas frentes:
 
@@ -197,21 +214,22 @@ terraform destroy -var="db_password=<SENHA_FORTE>"
 
 ## ☸️ Deploy em Kubernetes
 
-Os manifestos em `k8s/` (aplicados via Kustomize) sobem a API, o Job de migração de banco, o
+Os manifestos em `k8s/` sobem a API, o Job de migração de banco, o
 ConfigMap/Secret de configuração e o HorizontalPodAutoscaler no cluster EKS provisionado acima.
 
 ### Pré-requisitos
 
 * Cluster já provisionado (`terraform apply` em `infra/`) e `kubectl` configurado para ele
   (`aws eks update-kubeconfig --name <eks_cluster_name> --region us-east-1`).
-* Metrics Server instalado no cluster (necessário para o HPA calcular CPU/memória) — no EKS,
-  instale com `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml`.
+* Metrics Server instalado no cluster (necessário para o HPA calcular CPU/memória). O workflow de
+  deploy instala isso automaticamente; em execução manual, aplique o release oficial e ajuste as
+  flags do kubelet para EKS se necessário.
 * Imagens `api` e `db-migrator` publicadas em um registry acessível pelo cluster (o pipeline de
   CI/CD publica automaticamente no GHCR).
 
 ### Passo a passo (manual, fora do CI/CD)
 
-1. Gere o Secret real a partir do template (nunca commitar valores reais):
+1. Gere o Secret real a partir do template:
    ```bash
    cp k8s/api/secret.example.yaml k8s/api/secret.yaml
    # edite k8s/api/secret.yaml com a connection string real (host/porta/senha do RDS) e a
@@ -223,27 +241,42 @@ ConfigMap/Secret de configuração e o HorizontalPodAutoscaler no cluster EKS pr
    sed -i "s|API_IMAGE|ghcr.io/<owner>/<repo>-api:<tag>|" k8s/api/deployment.yaml
    sed -i "s|DB_MIGRATOR_IMAGE|ghcr.io/<owner>/<repo>-db-migrator:<tag>|" k8s/db-migrator/job.yaml
    ```
-3. Aplique os manifestos:
-   ```bash
-   kubectl apply -k k8s/
-   kubectl rollout status deployment/api -n garage-management
-   ```
-4. Acompanhe o autoscaling:
-   ```bash
-   kubectl get hpa -n garage-management --watch
-   ```
+3. Crie o secret de pull do GHCR no namespace `garage-management`:
 
-O CI/CD (job `deploy` em `.github/workflows/build.yml`) automatiza os 3 primeiros passos a cada
-push em `master`, assim que os secrets abaixo estiverem configurados no repositório.
+    ```bash
+    kubectl create secret docker-registry ghcr-registry \
+      --namespace garage-management \
+      --docker-server=ghcr.io \
+      --docker-username=<github-user-ou-bot> \
+      --docker-password=<github-token-com-acesso-ao-pacote> \
+      --dry-run=client -o yaml | kubectl apply -f -
+    ```
+4. Garanta que o Metrics Server esteja instalado no cluster antes do HPA:
+    ```bash
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    ```
+  Se o EKS não conseguir falar com o kubelet com TLS padrão, adicione as flags
+  `--kubelet-insecure-tls` e `--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname`
+  no Deployment do Metrics Server.
+5. Aplique os manifestos:
+    ```bash
+    kubectl apply -k k8s/
+    kubectl rollout status deployment/api -n garage-management
+    ```
+6. Acompanhe o autoscaling:
+    ```bash
+    kubectl get hpa -n garage-management --watch
+    ```
+
+O CI/CD (job `deploy` em `.github/workflows/build.yml`) automatiza os passos a cada
+push em `master`, secrets já configurados no repositório.
 
 ---
 
 ## 📋 Documentação da API
 
 A API está documentada utilizando **Swagger (OpenAPI)**.
-
 1. Acesse:
-
     ```
     http://localhost:8080/swagger
     ```
@@ -344,9 +377,11 @@ test/                                           <!-- Testes unitários e Testes 
 
 4️⃣ [Relatório de Análise de Vulnerabilidades](https://github.com/kmlyteixeira/garage-management-api-dotnet/tree/master/reports/security)
 
+5️⃣ [Diagrama de Arquitetura e Fluxo de Deploy](https://github.com/kmlyteixeira/garage-management-api-dotnet/tree/master/docs/architecture/deploy)
+
 ## 🎥 Vídeo de demonstração (Fase 2)
 
-TODO: Demonstração em vídeo (deploy da aplicação, execução do CI/CD, consumo das APIs e escalabilidade
+[Demonstração em vídeo]() (deploy da aplicação, execução do CI/CD, consumo das APIs e escalabilidade
 automática via HPA)
 
 ## 📑 Referências
@@ -358,3 +393,11 @@ automática via HPA)
 3️⃣ Módulos 1ª Fase SOAT FIAP
 
 4️⃣ Módulos 2ª Fase SOAT FIAP
+
+5️⃣ Documento de Especificação Tech Challenge 2ª Fase FIAP
+
+6️⃣ [Terraform - AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+
+7️⃣ [Kubernetes](https://kubernetes.io/docs/home/)
+
+8️⃣ [Apache Benchmarking Tool](https://httpd.apache.org/docs/2.4/programs/ab.html)
