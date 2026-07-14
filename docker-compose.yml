@@ -29,6 +29,15 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__Default: Host=postgres;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-Server};User ID=${POSTGRES_USER:-garage_user};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required};
       OpenIddict__Applications__GarageManagement_Swagger__RootUrl: http://localhost:8080
+      # Read by SmtpSettingsDataSeedContributor. Leave SMTP_USERNAME unset in .env to skip
+      # seeding SMTP settings entirely (no emails sent locally, no error either).
+      Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Smtp__UseDefaultCredentials: "false"
+      Smtp__DefaultFromDisplayName: Garage Management
+      Smtp__UserName: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
