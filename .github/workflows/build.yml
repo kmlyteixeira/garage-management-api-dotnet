@@ -106,6 +106,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       STRING_ENCRYPTION_PASSPHRASE: ${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -193,6 +195,8 @@ jobs:
             --namespace garage-management \
             --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ env.DB_PASSWORD }};" \
             --from-literal=StringEncryption__DefaultPassPhrase="${{ env.STRING_ENCRYPTION_PASSPHRASE }}" \
+            --from-literal=Smtp__UserName="${{ env.SMTP_USERNAME }}" \
+            --from-literal=Smtp__Password="${{ env.SMTP_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create/update GHCR pull secret

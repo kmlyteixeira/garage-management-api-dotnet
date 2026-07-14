@@ -16,3 +16,12 @@ data:
   AuthServer__SwaggerClientId: "GarageManagement_Swagger"
   # Consumed by the db-migrator Job, not by the api Deployment itself.
   OpenIddict__Applications__GarageManagement_Swagger__RootUrl: "CHANGE_ME.example.com"
+  # Read by SmtpSettingsDataSeedContributor (db-migrator), which pushes these into ABP Setting
+  # Management via ISettingManager so the SMTP password gets encrypted before it's persisted.
+  # Smtp__UserName/Password live in api-secret since Gmail requires the From address to match
+  # the authenticated account.
+  Smtp__DefaultFromDisplayName: "Garage Management"
+  Smtp__Host: "smtp.gmail.com"
+  Smtp__Port: "587"
+  Smtp__EnableSsl: "true"
+  Smtp__UseDefaultCredentials: "false"

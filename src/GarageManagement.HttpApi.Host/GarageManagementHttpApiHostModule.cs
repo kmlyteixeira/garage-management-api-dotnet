@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,7 @@ using Volo.Abp.Account;
 using Volo.Abp.Account.Web;
 using Volo.Abp.AspNetCore.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc;
+using Volo.Abp.AspNetCore.Mvc.AntiForgery;
 using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
@@ -89,6 +91,7 @@ public class GarageManagementHttpApiHostModule : AbpModule
         ConfigureJsonOptions(context);
         ConfigureSwaggerServices(context, configuration);
         ConfigureDataProtection(context);
+        ConfigureAntiForgery();
 
         context.Services.AddHealthChecks();
     }
@@ -109,6 +112,21 @@ public class GarageManagementHttpApiHostModule : AbpModule
         // GET (login page) and POST (submit credentials) land on different pods.
         context.Services.AddDataProtection()
             .PersistKeysToDbContext<GarageManagementDbContext>();
+    }
+
+    private void ConfigureAntiForgery()
+    {
+        // The PRD host is served over plain HTTP (no TLS on the EKS LoadBalancer yet), so a
+        // SameSite=None cookie - ABP's default, to support a cross-origin SPA - gets silently
+        // dropped by the browser (Chromium requires Secure for SameSite=None outside localhost).
+        // Swagger then sends X-Requested-With without a RequestVerificationToken and every POST
+        // gets rejected with a bare 400. SameSite=Lax doesn't require Secure and still round-trips
+        // for same-origin callers (Swagger, or an API-hosted UI); a cross-origin SPA would need
+        // this reverted once the host is upgraded to HTTPS.
+        Configure<AbpAntiForgeryOptions>(options =>
+        {
+            options.TokenCookie.SameSite = SameSiteMode.Lax;
+        });
     }
 
     private void ConfigureBundles()
