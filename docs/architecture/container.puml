@@ -1,0 +1,30 @@
+@startuml ContainerDiagram
+!include ../diagrams/C4_Container.puml
+
+title Container Diagram - Target Corporate Architecture
+
+Person(cliente, "Cliente")
+Person(funcionario, "Funcionário")
+
+System_Boundary(sistema_oficina, "Garage Management Corporate Stack") {
+    Container(apigateway, "AWS API Gateway", "Managed service", "Roteia chamadas e protege rotas sensíveis")
+    Container(auth_lambda, "Auth Lambda", "AWS Lambda", "Autenticação por CPF e emissão de JWT")
+    Container(api_backend, "Aplicação principal", ".NET 8 / ABP", "Gestão de ordens de serviço e integrações")
+    ContainerDb(database, "Banco gerenciado", "PostgreSQL", "Dados de clientes, veículos, ordens e auditoria")
+    Container(observability, "New Relic", "SaaS", "APM, logs, métricas e alertas")
+}
+
+System_Ext(cicd, "CI/CD em 4 repositórios")
+
+Rel(cliente, apigateway, "Autentica e consome APIs")
+Rel(funcionario, apigateway, "Executa operações protegidas")
+Rel(apigateway, auth_lambda, "Solicita validação do CPF")
+Rel(auth_lambda, database, "Consulta cliente e status")
+Rel(apigateway, api_backend, "Repassa JWT válido")
+Rel(api_backend, database, "Lê e grava")
+Rel(api_backend, observability, "Métricas, traces e logs JSON")
+Rel(auth_lambda, observability, "Erros e métricas de autenticação")
+Rel(cicd, apigateway, "Deploy automático da infraestrutura")
+Rel(cicd, api_backend, "Deploy automático da aplicação")
+
+@enduml

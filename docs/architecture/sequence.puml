@@ -1,0 +1,22 @@
+@startuml SequenceDiagram
+!include ../diagrams/C4_Sequence.puml
+
+actor Cliente
+participant "AWS API Gateway" as APIGW
+participant "Auth Lambda" as Lambda
+database "Banco gerenciado" as DB
+participant "API .NET em EKS" as API
+
+Cliente -> APIGW : Envia CPF para autenticação
+APIGW -> Lambda : Invoca validação
+Lambda -> DB : Consulta cliente/status
+DB --> Lambda : Dados do cliente
+Lambda --> APIGW : JWT válido
+APIGW --> Cliente : Token para consumir APIs
+
+Cliente -> APIGW : POST /service-order/open com JWT
+APIGW -> API : Encaminha requisição protegida
+API -> DB : Persiste ordem/itens
+API --> Cliente : Ordem criada
+
+@enduml

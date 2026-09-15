@@ -1,0 +1,22 @@
+@startuml ComponentDiagram
+!include ../diagrams/C4_Component.puml
+
+title Component Diagram - Target Corporate Architecture
+
+ContainerDb(database, "Managed Database", "PostgreSQL", "Clientes, veículos, ordens de serviço, autenticação e auditoria")
+
+Container_Boundary(corporate, "AWS Corporate Stack") {
+	Component(apigateway, "AWS API Gateway", "API Gateway", "Roteamento, proteção e throttling de rotas sensíveis")
+	Component(auth_lambda, "Auth Lambda", "AWS Lambda", "Valida CPF, consulta status do cliente e emite JWT")
+	Component(api_host, "GarageManagement.HttpApi.Host", ".NET 8 / ABP", "Regras de negócio, Swagger e endpoints protegidos")
+	Component(newrelic, "New Relic", "APM / Logs / Dashboards", "Latência, uso de recursos, alertas e rastreabilidade")
+}
+
+Rel(apigateway, auth_lambda, "Invokes login/auth flow")
+Rel(auth_lambda, database, "Reads client status")
+Rel(apigateway, api_host, "Forwards authenticated requests")
+Rel(api_host, database, "Reads/Writes")
+Rel(api_host, newrelic, "Sends logs, traces and metrics")
+Rel(auth_lambda, newrelic, "Sends auth metrics and errors")
+
+@enduml
