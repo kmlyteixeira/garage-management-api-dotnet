@@ -1,0 +1,8 @@
+{
+  "alerts": [
+    { "name": "API high 5xx", "condition": "error_rate > 5% for 5 minutes" },
+    { "name": "API high P95 latency", "condition": "p95 > 1 second for 10 minutes" },
+    { "name": "Pod excessive restarts", "condition": "restarts > 3 in 15 minutes" },
+    { "name": "Database unavailable", "condition": "connection failures detected" }
+  ]
+}

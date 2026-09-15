@@ -2,7 +2,8 @@ name: SonarQube
 on:
   push:
     branches:
-      - master
+      - main
+      - develop
   pull_request:
     types: [opened, synchronize, reopened]
 jobs:
@@ -67,7 +68,7 @@ jobs:
     name: Build & push Docker images
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
@@ -96,7 +97,7 @@ jobs:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
     needs: docker-build-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: read
@@ -106,6 +107,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       STRING_ENCRYPTION_PASSPHRASE: ${{ secrets.STRING_ENCRYPTION_PASSPHRASE }}
+      JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}
       SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
     steps:
@@ -195,6 +197,7 @@ jobs:
             --namespace garage-management \
             --from-literal=ConnectionStrings__Default="Host=${{ steps.tf-outputs.outputs.rds_endpoint }};Port=${{ steps.tf-outputs.outputs.rds_port }};Database=${{ steps.tf-outputs.outputs.rds_database_name }};User ID=garage_user;Password=${{ env.DB_PASSWORD }};" \
             --from-literal=StringEncryption__DefaultPassPhrase="${{ env.STRING_ENCRYPTION_PASSPHRASE }}" \
+            --from-literal=ExternalJwt__PublicKeyPem="${{ env.JWT_PUBLIC_KEY }}" \
             --from-literal=Smtp__UserName="${{ env.SMTP_USERNAME }}" \
             --from-literal=Smtp__Password="${{ env.SMTP_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -

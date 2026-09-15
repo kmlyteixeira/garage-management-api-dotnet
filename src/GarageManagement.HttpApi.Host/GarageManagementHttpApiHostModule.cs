@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.DataProtection;
@@ -13,11 +16,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using GarageManagement.EntityFrameworkCore;
 using GarageManagement.MultiTenancy;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.LeptonXLite.Bundling;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using OpenIddict.Validation.AspNetCore;
 using OpenIddict.Server.AspNetCore;
 using Volo.Abp;
@@ -93,12 +100,70 @@ public class GarageManagementHttpApiHostModule : AbpModule
         ConfigureDataProtection(context);
         ConfigureAntiForgery();
 
+        ConfigureOpenTelemetry(context);
+
         context.Services.AddHealthChecks();
+    }
+
+    private static void ConfigureOpenTelemetry(ServiceConfigurationContext context)
+    {
+        var configuration = context.Services.GetConfiguration();
+        var endpoint = configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return;
+        }
+
+        context.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService("garage-management-api"))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddOtlpExporter(options => options.Endpoint = new Uri(endpoint)))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddOtlpExporter(options => options.Endpoint = new Uri(endpoint)));
     }
 
     private void ConfigureAuthentication(ServiceConfigurationContext context)
     {
-        context.Services.ForwardIdentityAuthenticationForBearer(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+        var configuration = context.Services.GetConfiguration();
+
+        if (!configuration.GetValue<bool>("ExternalJwt:Enabled"))
+        {
+            context.Services.ForwardIdentityAuthenticationForBearer(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+        }
+        else
+        {
+            context.Services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "GarageManagementBearer";
+                    options.DefaultChallengeScheme = "GarageManagementBearer";
+                })
+                .AddPolicyScheme("GarageManagementBearer", "Garage Management bearer tokens", options =>
+                {
+                    options.ForwardDefaultSelector = _ => "GarageManagementLambdaJwt";
+                })
+                .AddJwtBearer("GarageManagementLambdaJwt", options =>
+                {
+                    using var rsa = RSA.Create();
+                    rsa.ImportFromPem(configuration["ExternalJwt:PublicKeyPem"]);
+
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidIssuer = configuration["ExternalJwt:Issuer"],
+                        ValidateAudience = true,
+                        ValidAudience = configuration["ExternalJwt:Audience"],
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new RsaSecurityKey(rsa),
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.FromSeconds(30)
+                    };
+                });
+        }
+
         context.Services.Configure<AbpClaimsPrincipalFactoryOptions>(options =>
         {
             options.IsDynamicClaimsEnabled = true;

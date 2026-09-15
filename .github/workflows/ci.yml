@@ -1,0 +1,42 @@
+name: API CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore garage-management-api-dotnet.sln
+      - run: dotnet build garage-management-api-dotnet.sln --no-restore --configuration Release
+      - run: dotnet test test/GarageManagement.Domain.Tests/GarageManagement.Domain.Tests.csproj --no-build --configuration Release
+      - run: dotnet test test/GarageManagement.Application.Tests/GarageManagement.Application.Tests.csproj --no-build --configuration Release
+      - run: dotnet test test/GarageManagement.EntityFrameworkCore.Tests/GarageManagement.EntityFrameworkCore.Tests.csproj --no-build --configuration Release
+
+  container:
+    if: github.event_name == 'push'
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/GarageManagement.HttpApi.Host/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}-api:${{ github.sha }}

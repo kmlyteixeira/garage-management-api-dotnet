@@ -33,6 +33,10 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .IsRequired()
             .HasMaxLength(14);
 
+        builder.Property(x => x.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.HasIndex(x => x.Email).IsUnique();
         builder.HasIndex(x => x.Document).IsUnique();
     }
