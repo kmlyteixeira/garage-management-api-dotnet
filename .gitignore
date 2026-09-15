@@ -266,7 +266,6 @@ src/GarageManagement.DbMigrator/Logs/*
 **/wwwroot/libs/*
 
 docs/diagrams
-docs/architecture/*.puml
 ROTEIRO.md
 
 # Terraform

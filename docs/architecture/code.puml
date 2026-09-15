@@ -1,0 +1,61 @@
+@startuml CodeDiagram
+!include ../diagrams/C4_Dynamic.puml
+
+title Domain Model - Ordem de Serviço
+
+class Order {
+ id
+ customerId
+ vehicleId
+ status
+ totalPrice
+ createdAt
+ addService()
+ addPart()
+ calculateBudget()
+ changeStatus()
+}
+
+class Customer {
+ id
+ name
+ cpfCnpj
+}
+
+class Vehicle {
+ id
+ plate
+ brand
+ model
+ year
+}
+
+class ServiceItem {
+ id
+ name
+ price
+}
+
+class PartItem {
+ id
+ name
+ price
+ quantity
+}
+
+enum OrderStatus {
+ RECEIVED
+ IN_DIAGNOSIS
+ WAITING_APPROVAL
+ IN_EXECUTION
+ FINISHED
+ DELIVERED
+}
+
+Order --> Customer
+Order --> Vehicle
+Order --> ServiceItem
+Order --> PartItem
+Order --> OrderStatus
+
+@enduml

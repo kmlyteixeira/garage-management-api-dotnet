@@ -1,0 +1,25 @@
+@startuml SystemContext
+!include ../diagrams/C4_Context.puml
+
+title System Context - Sistema da Oficina Mecânica
+
+Person(cliente, "Cliente", "Solicita serviços, acompanha status e aprova orçamentos")
+
+Person(funcionario, "Funcionário da Oficina", "Cria e gerencia ordens de serviço")
+
+Person(admin, "Administrador", "Gerencia cadastros e monitora métricas")
+
+System(oficina, "Sistema Integrado da Oficina", "Gerencia clientes, veículos, ordens de serviço, peças e execução de serviços")
+
+System_Ext(notificacao, "Sistema de Notificação", "Envio de mensagens e atualizações para clientes")
+
+System_Ext(validacao, "Serviço de Validação", "Validação de CPF/CNPJ e placa de veículos")
+
+Rel(cliente, oficina, "Consulta status / aprova orçamento")
+Rel(funcionario, oficina, "Gerencia OS")
+Rel(admin, oficina, "Administração")
+
+Rel(oficina, notificacao, "Envia notificações")
+Rel(oficina, validacao, "Valida dados")
+
+@enduml

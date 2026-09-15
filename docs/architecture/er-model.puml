@@ -1,0 +1,72 @@
+@startuml ERModel
+hide circle
+skinparam linetype ortho
+
+title Modelo Relacional - Evolução Corporativa
+
+entity Customer {
+  *Id : guid
+  --
+  Cpf : string
+  Name : string
+  Status : string
+  CreatedAt : datetime
+}
+
+entity Vehicle {
+  *Id : guid
+  --
+  CustomerId : guid
+  Plate : string
+  Brand : string
+  Model : string
+  Year : int
+}
+
+entity ServiceOrder {
+  *Id : guid
+  --
+  CustomerId : guid
+  VehicleId : guid
+  Status : string
+  TotalAmount : decimal
+  OpenedAt : datetime
+  ClosedAt : datetime?
+}
+
+entity Estimate {
+  *Id : guid
+  --
+  ServiceOrderId : guid
+  Status : string
+  TotalAmount : decimal
+  CreatedAt : datetime
+}
+
+entity EstimateItem {
+  *Id : guid
+  --
+  EstimateId : guid
+  ItemType : string
+  Description : string
+  Quantity : int
+  UnitPrice : decimal
+}
+
+entity InventoryItem {
+  *Id : guid
+  --
+  Sku : string
+  Description : string
+  QuantityOnHand : int
+  ReservedQuantity : int
+}
+
+Customer ||--o{ Vehicle : owns
+Customer ||--o{ ServiceOrder : opens
+Vehicle ||--o{ ServiceOrder : is_used_in
+ServiceOrder ||--|| Estimate : generates
+Estimate ||--o{ EstimateItem : contains
+InventoryItem ||--o{ EstimateItem : may_back
+
+@enduml
