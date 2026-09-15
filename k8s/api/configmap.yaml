@@ -6,6 +6,10 @@ metadata:
 data:
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
+  OTEL_SERVICE_NAME: "garage-management-api"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "CHANGE_ME_OTLP_ENDPOINT"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
   # Replace with the real public URL of the api Service (LoadBalancer DNS or your own domain).
   # The deploy workflow replaces CHANGE_ME.example.com with the full http://... URL.
   App__SelfUrl: "CHANGE_ME.example.com"
@@ -14,6 +18,9 @@ data:
   AuthServer__Authority: "CHANGE_ME.example.com"
   AuthServer__RequireHttpsMetadata: "false"
   AuthServer__SwaggerClientId: "GarageManagement_Swagger"
+  ExternalJwt__Enabled: "false"
+  ExternalJwt__Issuer: "CHANGE_ME_AUTH_ISSUER"
+  ExternalJwt__Audience: "garage-management-api"
   # Consumed by the db-migrator Job, not by the api Deployment itself.
   OpenIddict__Applications__GarageManagement_Swagger__RootUrl: "CHANGE_ME.example.com"
   # Read by SmtpSettingsDataSeedContributor (db-migrator), which pushes these into ABP Setting

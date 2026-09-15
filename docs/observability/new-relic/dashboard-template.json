@@ -1,0 +1,10 @@
+{
+  "name": "Garage Management - Operational",
+  "description": "Template; replace entity names and account identifiers before import.",
+  "widgets": [
+    { "title": "Requests per minute", "query": "SELECT rate(count(*), 1 minute) FROM Transaction WHERE appName = 'garage-management-api'" },
+    { "title": "Latency P95", "query": "SELECT percentile(duration, 95) FROM Transaction WHERE appName = 'garage-management-api'" },
+    { "title": "HTTP 5xx", "query": "SELECT percentage(count(*), WHERE error IS true) FROM Transaction WHERE appName = 'garage-management-api'" },
+    { "title": "Service order endpoint traffic", "query": "SELECT count(*) FROM Transaction WHERE appName = 'garage-management-api' AND request.uri LIKE '%service-order%'" }
+  ]
+}

@@ -64,6 +64,37 @@ public class CustomerAppServiceIntegrationTests : GarageManagementEntityFramewor
     }
 
     [Fact]
+    public async Task SetActiveAsync_Should_Persist_Status()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        await WithUnitOfWorkAsync(async () =>
+        {
+            var created = await customerAppService.CreateAsync(new CustomerCreateUpdateDto
+            {
+                Name = $"Cliente {suffix}",
+                Email = $"cliente-{suffix}@mail.com",
+                PhoneNumber = "11999999999",
+                Document = "12345678901"
+            });
+
+            var deactivated = await customerAppService.SetActiveAsync(created.Id, new CustomerSetActiveDto
+            {
+                IsActive = false
+            });
+
+            deactivated.IsActive.ShouldBeFalse();
+
+            var reactivated = await customerAppService.SetActiveAsync(created.Id, new CustomerSetActiveDto
+            {
+                IsActive = true
+            });
+
+            reactivated.IsActive.ShouldBeTrue();
+        });
+    }
+
+    [Fact]
     public void ContainsConstraintName_Should_Detect_In_Nested_Exceptions()
     {
         var constraintName = "IX_AppCustomers_Document";

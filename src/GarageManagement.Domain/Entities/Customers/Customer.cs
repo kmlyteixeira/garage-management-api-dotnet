@@ -9,6 +9,7 @@ namespace GarageManagement.Customers
         public string Email { get; set; }
         public string PhoneNumber { get; set; }
         public Document Document { get; set; }
+        public bool IsActive { get; private set; } = true;
 
         public Customer(string name, string email, string phoneNumber, Document document)
         {
@@ -16,6 +17,11 @@ namespace GarageManagement.Customers
             Email = email;
             PhoneNumber = phoneNumber;
             Document = document;
+        }
+
+        public void SetActive(bool isActive)
+        {
+            IsActive = isActive;
         }
     }
 }

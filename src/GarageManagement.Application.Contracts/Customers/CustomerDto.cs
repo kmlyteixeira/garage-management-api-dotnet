@@ -21,5 +21,7 @@ namespace GarageManagement.Customers
         [Required(ErrorMessage = "O documento é obrigatório")]
         [StringLength(14, MinimumLength = 11, ErrorMessage = "Documento deve ter 11 ou 14 caracteres")]
         public string Document { get; set; }
+
+        public bool IsActive { get; set; }
     }
 }
